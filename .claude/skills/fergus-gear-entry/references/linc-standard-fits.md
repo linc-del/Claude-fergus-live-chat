@@ -53,7 +53,7 @@ that changes per circuit and per charge — but the brand/range is fixed, so mat
 
 | Spoken | Brand/range | Code pattern | Sell ex GST | Always ask |
 |--------|-------------|--------------|-------------|-----------|
-| RCBO | Schneider Resi9 Slim 1P+N C-curve 30mA Type A | R9D066xx (6/10/16/20/25/32A) | $75.67 | amp rating |
+| RCBO | Schneider Resi9 Slim 1P+N C-curve 30mA Type A | R9D066xx (6/10/16/20/25/32A) | ~$62.05 (Ideal copy; $75.67 in Schneider book — prefer Ideal) | amp rating |
 | RCCB | Schneider 2-pole RCCB | search `Resi9 RCCB` / `2 pole RCCB` | — | amp + sensitivity |
 
 ## Flat charges (from the brain — not pricebook)

@@ -78,6 +78,10 @@ it searches name, product code and supplier SKU).
   `double socket` / `double powerpoint`; "batten holder" → `batten holder`.
 - The pricebook's `retailPrice` already carries Linc's markup (it sits ~1.67× cost, the
   67% floor), so a matched item is priced correctly as-is. You do **not** re-apply markup.
+- The same product can appear in more than one supplier's pricebook at different prices (e.g. a
+  Schneider Resi9 RCBO shows in both Schneider's book and Ideal's). Prefer the **Ideal** copy
+  unless told otherwise — Ideal is the main wholesaler, so its price reflects what we actually
+  buy and charge at. If the two differ a lot, note it rather than silently picking one.
 
 Assign each line a confidence:
 
