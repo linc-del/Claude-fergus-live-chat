@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Linc Electrical · Fergus Assistant</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%E2%9A%A1%3C/text%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="bolt">⚡</span>
+          <div>
+            <div class="brand-title">Fergus Assistant</div>
+            <div class="brand-sub">Linc Electrical</div>
+          </div>
+        </div>
+        <button id="newChat" class="ghost-btn" title="Start a new conversation">
+          New chat
+        </button>
+      </header>
+
+      <main id="messages" class="messages">
+        <div class="empty" id="empty">
+          <div class="empty-bolt">⚡</div>
+          <h1>How can I help with the jobs today?</h1>
+          <div class="suggestions">
+            <button class="chip">What jobs are open right now?</button>
+            <button class="chip">Show unpaid invoices</button>
+            <button class="chip">Look up a customer</button>
+            <button class="chip">What's scheduled this week?</button>
+          </div>
+        </div>
+      </main>
+
+      <footer class="composer">
+        <form id="chatForm">
+          <textarea
+            id="input"
+            rows="1"
+            placeholder="Ask about jobs, quotes, invoices, customers…"
+            autocomplete="off"
+          ></textarea>
+          <button id="send" type="submit" aria-label="Send">
+            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 12l16-8-8 16-2-6-6-2z" fill="currentColor"/></svg>
+          </button>
+        </form>
+        <div class="hint">
+          Connected to Fergus · Claude can look up and act on live job data
+        </div>
+      </footer>
+    </div>
+    <script src="/app.js"></script>
+  </body>
+</html>
