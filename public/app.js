@@ -142,7 +142,12 @@ async function sendMessage(text) {
 
     if (!res.ok || !res.body) {
       const info = await res.json().catch(() => ({}));
+      if (info.needsLogin) {
+        window.location.href = "/login";
+        return;
+      }
       turn.error(info.error || `Request failed (${res.status})`);
+      if (info.needsFergus && typeof refreshFergusStatus === "function") refreshFergusStatus();
       return;
     }
 
@@ -214,6 +219,62 @@ form.addEventListener("submit", (e) => {
 document.querySelectorAll(".chip").forEach((chip) => {
   chip.addEventListener("click", () => sendMessage(chip.textContent.trim()));
 });
+
+/* ---------- Fergus connection + account ---------- */
+
+const fergusPill = document.getElementById("fergusPill");
+const connectBtn = document.getElementById("connectFergus");
+const banner = document.getElementById("fergusBanner");
+const bannerConnect = document.getElementById("bannerConnect");
+const logoutBtn = document.getElementById("logout");
+
+function goConnect() {
+  window.location.href = "/api/fergus/connect";
+}
+connectBtn.addEventListener("click", goConnect);
+bannerConnect.addEventListener("click", goConnect);
+
+logoutBtn.addEventListener("click", async () => {
+  await fetch("/api/logout", { method: "POST" }).catch(() => {});
+  window.location.href = "/login";
+});
+
+async function refreshFergusStatus() {
+  try {
+    const res = await fetch("/api/fergus/status");
+    const { connected } = await res.json();
+    if (connected) {
+      fergusPill.textContent = "Fergus: connected";
+      fergusPill.className = "pill pill-on";
+      connectBtn.hidden = true;
+      banner.hidden = true;
+    } else {
+      fergusPill.textContent = "Fergus: not connected";
+      fergusPill.className = "pill pill-off";
+      connectBtn.hidden = false;
+      banner.hidden = false;
+    }
+  } catch {
+    fergusPill.textContent = "Fergus: unknown";
+    fergusPill.className = "pill pill-off";
+  }
+}
+
+// Surface the result of the OAuth round-trip and clean up the URL.
+(function handleReturnParams() {
+  const params = new URLSearchParams(window.location.search);
+  const err = params.get("fergus_error");
+  if (err) {
+    banner.hidden = false;
+    document.getElementById("bannerText").textContent = "Fergus connection failed: " + err;
+  }
+  if (params.get("fergus") || err) {
+    window.history.replaceState({}, "", "/");
+  }
+})();
+
+refreshFergusStatus();
+setInterval(refreshFergusStatus, 60000);
 
 newChatBtn.addEventListener("click", async () => {
   await fetch("/api/reset", {

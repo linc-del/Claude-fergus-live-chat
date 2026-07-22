@@ -1,86 +1,96 @@
 # Claude ⇄ Fergus Live Chat
 
-An internal staff web app for **Linc Electrical**. It's a browser chat interface where Claude answers questions and takes actions against your live **Fergus** job‑management data — open jobs, customers, sites, quotes, invoices, contacts, time entries, price books, calendar, stock, and notes.
+An internal staff web app for **Linc Electrical**. It's a browser chat where Claude answers questions and takes actions against your live **Fergus** data — jobs, customers, sites, quotes, invoices, contacts, time entries, price books, calendar, stock, and notes.
 
-It works by wiring Claude to your **hosted Fergus MCP server** through the Anthropic **MCP connector**: the backend passes the Fergus MCP URL + token to the Messages API, and Anthropic runs the tool loop server‑side. There's no separate MCP server to build or host here — this app only needs the URL and token of the Fergus MCP that already exists.
+Claude talks to Fergus directly through the Anthropic **MCP connector**: the app hands Claude the Fergus MCP server + your Fergus login, and Anthropic runs the tool calls. The app itself never touches Fergus — it just introduces the two.
 
 ```
-Browser chat UI  ──▶  Node/Express backend  ──▶  Anthropic Messages API
-                                                     │  (MCP connector)
-                                                     ▼
-                                              Hosted Fergus MCP  ──▶  Fergus
+Phone / desktop browser
+        │  (team password login)
+        ▼
+   This app (Node/Express)
+        │  Anthropic Messages API + MCP connector
+        ▼
+   Claude  ──(your Fergus OAuth login)──▶  Fergus MCP  ──▶  Fergus
 ```
+
+Two logins are involved, and they're different:
+
+- **App login** — a shared team password, so only your people can open the app once it's online.
+- **Connect Fergus** — a one-time "Log in with Fergus" (OAuth) done from inside the app that links it to your Fergus account. The app keeps that connection refreshed.
 
 ## Requirements
 
 - Node.js 18+
-- An Anthropic API key
-- The URL of your hosted Fergus MCP server and an authorization token for it
+- An Anthropic API key (from the Anthropic Console)
+- A Fergus account (you log into it from the app — nothing to paste)
 
-## Setup
+## Run it locally
 
 ```bash
 npm install
 cp .env.example .env
-# then edit .env — see below
 ```
 
-Fill in `.env`:
+Edit `.env` and set at least:
 
-| Variable            | Required | Notes                                                                 |
-| ------------------- | -------- | --------------------------------------------------------------------- |
-| `ANTHROPIC_API_KEY` | yes      | From the Anthropic Console.                                           |
-| `FERGUS_MCP_URL`    | yes      | The hosted Fergus MCP server endpoint (Streamable HTTP / SSE URL).    |
-| `FERGUS_MCP_TOKEN`  | usually  | Bearer/OAuth token the Fergus MCP expects. Leave blank only if none.  |
-| `MODEL`             | no       | Defaults to `claude-opus-4-8`.                                        |
-| `PORT`              | no       | Defaults to `3000`.                                                   |
+```
+ANTHROPIC_API_KEY=sk-ant-...
+APP_PASSWORD=pick-a-strong-team-password
+```
 
-> The Fergus MCP URL and token are whatever you already use to connect Fergus as a
-> remote MCP server (the same connector details you'd add in a Claude.ai custom
-> connector). This app just points the API at that endpoint on your behalf.
-
-## Run
-
-Development (auto‑reload):
+Then:
 
 ```bash
-npm run dev
+npm run dev          # development, auto-reloads
+# or: npm run build && npm start   # production
 ```
 
-Production:
+Open **http://localhost:3000**, enter the team password, then click **Connect Fergus** (top right) and sign into Fergus once. After that, chat away.
 
-```bash
-npm run build
-npm start
-```
+## Use it from your phone (hosting it online)
 
-Then open **http://localhost:3000**.
+The chat page opens in any phone browser, but the "engine" needs to run somewhere always-on. To use it from your Android anywhere:
+
+1. Deploy this app to a host that gives you an **https URL** (Render, Railway, Fly.io, a small VPS, etc.).
+2. Set these env vars on the host:
+   - `ANTHROPIC_API_KEY`
+   - `APP_PASSWORD`
+   - `PUBLIC_URL=https://your-app-url` ← **must be your real https URL** (it's used to build the Fergus login redirect, so it has to match exactly)
+3. Open that URL on your phone, log in with the team password, and click **Connect Fergus** once.
+
+Because it's now on the internet, the team-password login is what keeps it private — so use a strong password. (If you'd rather have per-person logins or Google sign-in later, that's a straightforward upgrade.)
+
+> **On same-wifi only, no cloud:** you can also just run it on an office computer and open `http://<that-computer's-ip>:3000` from your phone while on the same wifi. Set `PUBLIC_URL` to that same `http://<ip>:3000` so the Fergus login redirect matches.
+
+## Environment variables
+
+| Variable            | Required | Notes                                                                          |
+| ------------------- | -------- | ------------------------------------------------------------------------------ |
+| `ANTHROPIC_API_KEY` | yes      | Pays for Claude usage.                                                         |
+| `APP_PASSWORD`      | yes      | Shared team password for the app login screen.                                 |
+| `PUBLIC_URL`        | for hosting | The exact URL the app is reached at. Defaults to `http://localhost:3000`.    |
+| `FERGUS_MCP_URL`    | no       | Defaults to `https://mcp.fergus.com/mcp` (correct as-is).                      |
+| `MODEL`             | no       | Defaults to `claude-opus-4-8`.                                                 |
+| `PORT`              | no       | Defaults to `3000`.                                                            |
+| `SESSION_SECRET`    | no       | Auto-generated if unset. Set a fixed value if running multiple instances.      |
 
 ## How it works
 
-- **`src/server.ts`** — Express server. `POST /api/chat` streams Claude's reply back
-  to the browser over Server‑Sent Events. Each request declares the Fergus MCP server
-  (`mcp_servers`) plus an `mcp_toolset`, with the `mcp-client-2025-11-20` beta, so
-  Claude can call Fergus tools directly. Adaptive thinking is on so the UI can show a
-  live "thinking" preview, and `pause_turn` is handled so long tool loops resume
-  automatically. Conversation history is kept in memory per `sessionId`.
-- **`public/`** — a dependency‑free chat UI. It renders streamed text, shows a chip
-  each time Claude calls a Fergus tool, and a muted preview while Claude is thinking.
+- **`src/server.ts`** — Express server. `POST /api/chat` streams Claude's reply to the browser over SSE, declaring the Fergus MCP server (`mcp_servers` + `mcp_toolset`, beta `mcp-client-2025-11-20`) so Claude can call Fergus tools directly. Adaptive thinking is on so the UI shows a live "thinking" preview; `pause_turn` is handled so long tool runs resume. Conversations are kept in memory per session.
+- **`src/auth.ts`** — the team-password login: a signed, HttpOnly session cookie; every route except the login page is gated.
+- **`src/fergus.ts`** — the Connect Fergus flow: dynamic client registration, OAuth authorization-code + PKCE, and automatic token refresh. Tokens are stored under `data/` (git-ignored).
+- **`public/`** — a dependency-free UI: login page, chat with streamed text, a chip each time Claude calls a Fergus tool, a Fergus connection pill, and a Connect banner.
 
 ## Notes & limits
 
-- **In‑memory sessions.** History lives in the server process and is cleared on
-  restart (and after 6 hours idle). Fine for an internal single‑instance tool; add a
-  store (Redis, a DB) if you need durability or multiple instances.
-- **Trusted users only.** There's no authentication in front of the app and it has
-  full Fergus access. Run it behind your VPN / SSO, or add auth before exposing it.
-- **Confirm‑before‑acting.** The system prompt tells Claude to confirm before creating
-  or changing Fergus data. Review actions before approving them.
-- **Costs.** Every message is an Anthropic API call (plus tool round‑trips). Watch usage.
+- **In-memory chat history** — cleared on restart and after 6 h idle. Fine for a single instance; add Redis/DB for durability or multiple instances.
+- **Fergus token storage** — kept in `data/fergus-tokens.json`. On hosts with ephemeral disks you may need to reconnect Fergus after a redeploy (or mount a persistent volume).
+- **Confirm-before-acting** — Claude is told to confirm before creating or changing Fergus data. Review actions before approving.
+- **Costs** — every message is an Anthropic API call plus Fergus tool round-trips. Keep an eye on usage.
 
 ## Customising
 
-- Change the assistant's behaviour: edit `SYSTEM_PROMPT` in `src/server.ts`.
-- Swap the model: set `MODEL` in `.env`.
-- Restrict which Fergus tools are available: give the `mcp_toolset` entry a
-  `default_config`/`configs` allowlist (see the Anthropic MCP connector docs).
+- Assistant behaviour: edit `SYSTEM_PROMPT` in `src/server.ts`.
+- Model: set `MODEL` in `.env`.
+- Restrict which Fergus tools are allowed: give the `mcp_toolset` entry a `default_config`/`configs` allowlist (see the Anthropic MCP connector docs).

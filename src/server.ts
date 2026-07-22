@@ -1,28 +1,20 @@
-import "dotenv/config";
 import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
+import { fileURLToPath } from "node:url";
+import {
+  ANTHROPIC_API_KEY,
+  MODEL,
+  PORT,
+  PUBLIC_URL,
+  FERGUS_MCP_URL,
+} from "./config.js";
+import { checkPassword, issueSession, clearSession, requireAuth } from "./auth.js";
+import { startAuth, handleCallback, getAccessToken, isConnected, disconnect } from "./fergus.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-const {
-  ANTHROPIC_API_KEY,
-  FERGUS_MCP_URL,
-  FERGUS_MCP_TOKEN,
-  PORT = "3000",
-  MODEL = "claude-opus-4-8",
-} = process.env;
-
-if (!ANTHROPIC_API_KEY) {
-  console.error("Missing ANTHROPIC_API_KEY — copy .env.example to .env and fill it in.");
-  process.exit(1);
-}
-if (!FERGUS_MCP_URL) {
-  console.error("Missing FERGUS_MCP_URL — set the hosted Fergus MCP server URL in .env.");
-  process.exit(1);
-}
+const PUBLIC = path.join(__dirname, "..", "public");
 
 const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
@@ -41,36 +33,67 @@ interface Session {
   messages: any[];
   lastUsed: number;
 }
-
 const sessions = new Map<string, Session>();
 
-// Drop sessions idle for more than 6 hours (in-memory only).
 const SESSION_TTL_MS = 6 * 60 * 60 * 1000;
 setInterval(() => {
   const now = Date.now();
-  for (const [id, s] of sessions) {
-    if (now - s.lastUsed > SESSION_TTL_MS) sessions.delete(id);
-  }
+  for (const [id, s] of sessions) if (now - s.lastUsed > SESSION_TTL_MS) sessions.delete(id);
 }, 30 * 60 * 1000).unref();
 
-const mcpServer: any = {
-  type: "url",
-  url: FERGUS_MCP_URL,
-  name: "fergus",
-  ...(FERGUS_MCP_TOKEN ? { authorization_token: FERGUS_MCP_TOKEN } : {}),
-};
-
 const app = express();
+app.set("trust proxy", 1);
 app.use(express.json({ limit: "2mb" }));
-app.use(express.static(path.join(__dirname, "..", "public")));
 
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true, model: MODEL, fergusUrl: FERGUS_MCP_URL });
+/* ---------- public (no login required) ---------- */
+app.get("/login", (_req, res) => res.sendFile(path.join(PUBLIC, "login.html")));
+app.get("/login.js", (_req, res) => res.sendFile(path.join(PUBLIC, "login.js")));
+app.get("/styles.css", (_req, res) => res.sendFile(path.join(PUBLIC, "styles.css")));
+
+app.post("/api/login", (req, res) => {
+  if (checkPassword(req.body?.password)) {
+    issueSession(res);
+    res.json({ ok: true });
+  } else {
+    res.status(401).json({ error: "Wrong password" });
+  }
+});
+app.post("/api/logout", (_req, res) => {
+  clearSession(res);
+  res.json({ ok: true });
 });
 
-app.post("/api/reset", (req, res) => {
-  const { sessionId } = req.body ?? {};
-  if (sessionId) sessions.delete(sessionId);
+/* ---------- everything below requires app login ---------- */
+app.use(requireAuth);
+
+app.get("/api/session", (_req, res) => res.json({ sessionId: crypto.randomUUID() }));
+app.get("/api/health", (_req, res) =>
+  res.json({ ok: true, model: MODEL, fergusConnected: isConnected() }),
+);
+
+app.get("/api/fergus/status", (_req, res) => res.json({ connected: isConnected() }));
+app.get("/api/fergus/connect", async (_req, res) => {
+  try {
+    res.redirect(await startAuth());
+  } catch (err: any) {
+    res.redirect("/?fergus_error=" + encodeURIComponent(err?.message ?? "Could not start Fergus login"));
+  }
+});
+app.get("/api/fergus/callback", async (req, res) => {
+  const { code, state, error } = req.query as Record<string, string>;
+  if (error) {
+    res.redirect("/?fergus_error=" + encodeURIComponent(error));
+    return;
+  }
+  try {
+    await handleCallback(code, state);
+    res.redirect("/?fergus=connected");
+  } catch (err: any) {
+    res.redirect("/?fergus_error=" + encodeURIComponent(err?.message ?? "Fergus login failed"));
+  }
+});
+app.post("/api/fergus/disconnect", (_req, res) => {
+  disconnect();
   res.json({ ok: true });
 });
 
@@ -82,6 +105,18 @@ app.post("/api/chat", async (req, res) => {
   }
   if (typeof message !== "string" || !message.trim()) {
     res.status(400).json({ error: "message is required" });
+    return;
+  }
+
+  // Make sure Fergus is connected and we have a fresh token *before* streaming.
+  let fergusToken: string;
+  try {
+    fergusToken = await getAccessToken();
+  } catch {
+    res.status(409).json({
+      error: "Fergus isn't connected yet — click “Connect Fergus” at the top, then try again.",
+      needsFergus: true,
+    });
     return;
   }
 
@@ -99,8 +134,14 @@ app.post("/api/chat", async (req, res) => {
   res.setHeader("X-Accel-Buffering", "no");
   (res as any).flushHeaders?.();
 
-  const send = (event: string, data: unknown) => {
+  const send = (event: string, data: unknown) =>
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+
+  const mcpServer: any = {
+    type: "url",
+    url: FERGUS_MCP_URL,
+    name: "fergus",
+    authorization_token: fergusToken,
   };
 
   let aborted = false;
@@ -116,15 +157,12 @@ app.post("/api/chat", async (req, res) => {
 
   try {
     let guard = 0;
-    // Loop only to handle pause_turn (server-side MCP tool loop hit its limit).
     while (!aborted && guard++ < 10) {
       const stream = client.beta.messages.stream({
         model: MODEL,
         max_tokens: 16000,
         betas: ["mcp-client-2025-11-20"],
         system: SYSTEM_PROMPT,
-        // The MCP connector: Anthropic connects to the Fergus MCP server
-        // server-side and runs the tool loop for us.
         mcp_servers: [mcpServer],
         tools: [{ type: "mcp_toolset", mcp_server_name: "fergus" }],
         thinking: { type: "adaptive", display: "summarized" },
@@ -134,30 +172,20 @@ app.post("/api/chat", async (req, res) => {
 
       for await (const event of stream as any) {
         if (aborted) break;
-        if (event.type === "content_block_start") {
-          const block = event.content_block;
-          if (block?.type === "mcp_tool_use") {
-            send("tool", { name: block.name, server: block.server_name });
-          }
+        if (event.type === "content_block_start" && event.content_block?.type === "mcp_tool_use") {
+          send("tool", { name: event.content_block.name });
         } else if (event.type === "content_block_delta") {
           const delta = event.delta;
-          if (delta?.type === "text_delta") {
-            send("text", { text: delta.text });
-          } else if (delta?.type === "thinking_delta") {
-            send("thinking", { text: delta.thinking });
-          }
+          if (delta?.type === "text_delta") send("text", { text: delta.text });
+          else if (delta?.type === "thinking_delta") send("thinking", { text: delta.thinking });
         }
       }
-
       if (aborted) break;
 
       const final = await stream.finalMessage();
       session.messages.push({ role: "assistant", content: final.content });
 
-      if (final.stop_reason === "pause_turn") {
-        // Re-run with the paused assistant turn appended; the server resumes.
-        continue;
-      }
+      if (final.stop_reason === "pause_turn") continue;
       if (final.stop_reason === "refusal") {
         send("error", { message: "The request was declined for safety reasons." });
       }
@@ -166,24 +194,18 @@ app.post("/api/chat", async (req, res) => {
     if (!aborted) send("done", {});
   } catch (err: any) {
     console.error("Chat error:", err);
-    if (!aborted) {
-      send("error", {
-        message: err?.message ?? "Something went wrong talking to Claude or Fergus.",
-      });
-    }
+    if (!aborted) send("error", { message: err?.message ?? "Something went wrong." });
   } finally {
     res.end();
   }
 });
 
-// New session id helper for the frontend.
-app.get("/api/session", (_req, res) => {
-  res.json({ sessionId: crypto.randomUUID() });
-});
+// Static app (index.html at /, app.js) — served last, behind the login gate.
+app.use(express.static(PUBLIC));
 
-app.listen(Number(PORT), () => {
-  console.log(`\n  Claude ⇄ Fergus live chat running`);
-  console.log(`  → http://localhost:${PORT}`);
+app.listen(PORT, () => {
+  console.log(`\n  Claude ⇄ Fergus live chat`);
+  console.log(`  → ${PUBLIC_URL}`);
   console.log(`  Model:  ${MODEL}`);
-  console.log(`  Fergus: ${FERGUS_MCP_URL}\n`);
+  console.log(`  Fergus: ${FERGUS_MCP_URL} (connected: ${isConnected()})\n`);
 });

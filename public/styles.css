@@ -106,6 +106,154 @@ body {
   border-color: var(--muted);
 }
 
+.ghost-btn.accent {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pill {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.pill-on {
+  color: #1a7f43;
+  border-color: #b7e2c5;
+  background: #eef9f1;
+}
+
+.pill-off {
+  color: #a35a12;
+  border-color: #f0d3ac;
+  background: #fdf2e3;
+}
+
+@media (prefers-color-scheme: dark) {
+  .pill-on {
+    color: #63d68e;
+    border-color: #2c5238;
+    background: #17281d;
+  }
+  .pill-off {
+    color: #f0a24a;
+    border-color: #5a4525;
+    background: #2a2013;
+  }
+}
+
+/* Banner */
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 11px 16px;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text);
+  flex-wrap: wrap;
+}
+
+.banner-btn {
+  font: inherit;
+  font-size: 13px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 13px;
+  cursor: pointer;
+}
+
+/* Login page */
+.login-wrap {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 340px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 32px 28px;
+  text-align: center;
+}
+
+.login-bolt {
+  font-size: 40px;
+}
+
+.login-card h1 {
+  font-size: 20px;
+  margin: 8px 0 2px;
+}
+
+.login-sub {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0 0 22px;
+}
+
+.login-card input {
+  width: 100%;
+  font: inherit;
+  font-size: 15px;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--bg);
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.login-card input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.login-card button {
+  width: 100%;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 11px;
+  border: none;
+  border-radius: 11px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.login-error {
+  color: #a3241f;
+  font-size: 13px;
+  margin-top: 12px;
+  min-height: 1em;
+}
+
+@media (prefers-color-scheme: dark) {
+  .login-error {
+    color: #f0b4b0;
+  }
+}
+
 /* Messages */
 .messages {
   flex: 1;

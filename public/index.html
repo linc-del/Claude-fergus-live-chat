@@ -20,10 +20,18 @@
             <div class="brand-sub">Linc Electrical</div>
           </div>
         </div>
-        <button id="newChat" class="ghost-btn" title="Start a new conversation">
-          New chat
-        </button>
+        <div class="top-actions">
+          <span id="fergusPill" class="pill pill-checking">Fergus: checking…</span>
+          <button id="connectFergus" class="ghost-btn accent" hidden>Connect Fergus</button>
+          <button id="newChat" class="ghost-btn" title="Start a new conversation">New chat</button>
+          <button id="logout" class="ghost-btn" title="Sign out">Log out</button>
+        </div>
       </header>
+
+      <div id="fergusBanner" class="banner" hidden>
+        <span id="bannerText">Connect your Fergus account to start.</span>
+        <button id="bannerConnect" class="banner-btn">Connect Fergus</button>
+      </div>
 
       <main id="messages" class="messages">
         <div class="empty" id="empty">
