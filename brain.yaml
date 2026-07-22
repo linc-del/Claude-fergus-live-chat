@@ -207,6 +207,35 @@ suppliers:
   full_list_see: Fergus > Pricebooks
 
 # -----------------------------------------------------------------------------
+# STOCK & INVENTORY  (new — the one real gap in the original 8 folders)
+# THREE LAYERS — don't confuse them:
+#   pricing        -> Fergus pricebooks (see suppliers)
+#   used-on-a-job  -> Fergus "stock on hand" = per-job material COSTING, not stock levels
+#   what-we-hold   -> Glide (being built) = physical inventory by location
+# -----------------------------------------------------------------------------
+stock_and_inventory:
+  source_of_truth:
+    physical_stock: Glide            # in progress — Toni building it, ~75% there, NOT live yet
+    barcoding: Barcodes + 2 handheld scanners bought; scan-in / scan-out is the intended method
+    job_costing: Fergus stock-on-hand (materials booked per job phase — job costing, not levels)
+    supplier_documents: Fergus supplier documents + Drive "Supplier Documents (Statements/Invoices/Receipts)" folder
+  current_state:
+    locations: [vehicle stock — a lot, per van, workshop stock, daily buy-as-you-go from suppliers (mainly Ideal)]
+    last_stocktake: In Drive but STALE — stock taken since, not reliable. Use as a starting item list, not a true count.
+    status: No live stock system yet — the Glide + barcode rollout is the reset point.
+  wants:                             # Lincoln's target — roadmap, not built yet
+    - Track every supplier document as it arrives, and attach it to Fergus as a supplier document.
+    - Track stock per vehicle (how much is on each van).
+    - Nice-to-have: staff can see a nearby colleague's van stock. (not essential)
+    - Voice gear entry — staff speak the gear used -> transcribed -> Claude pushes it onto the Fergus job card. (testing)
+    - Open to further tracking suggestions.
+  proposed_boundary: draft           # confirm — see chat 22 Jul 2026
+    # Glide  = what we HOLD & WHERE (workshop + each van), kept live by barcode scan.
+    # Fergus = what we USED (job cards) + supplier documents.
+    # Flow:  buy -> supplier doc into Fergus + receive-scan into Glide
+    #             -> use on job -> scan/voice out (Glide decrements, Fergus job card increments).
+
+# -----------------------------------------------------------------------------
 # 04 — RATES & RULES  (the engine the quote-builder runs on)
 # -----------------------------------------------------------------------------
 rates_and_rules:
