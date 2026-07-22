@@ -1,0 +1,36 @@
+{
+  "skill_name": "fergus-gear-entry",
+  "note": "Matching-focused evals. Each run does PARSE + PRICEBOOK MATCH only and stops at the mapping table. Runs must NOT push to Fergus (no create-on-hand) and do NOT need a real job.",
+  "evals": [
+    {
+      "id": 0,
+      "name": "clean-single-cable",
+      "prompt": "You're helping enter gear onto a Fergus job for Linc Electrical. Match this dictated gear to real Fergus pricebook items and produce the mapping table only — do NOT push anything to Fergus, and you don't need a job number. Gear: \"20 metres of 2.5 TPS\".",
+      "expected_output": "Matches AFLMC0325 'Cable 2.5mm 2c + Earth Circular TPS' (Ideal), treats it as per-metre with quantity 20 (not 1), high confidence, ready to push. No spurious ambiguity."
+    },
+    {
+      "id": 1,
+      "name": "ambiguous-weatherproof-amp",
+      "prompt": "You're helping enter gear onto a Fergus job for Linc Electrical. Match this dictated gear to real Fergus pricebook items and produce the mapping table only — do NOT push anything to Fergus, and you don't need a job number. Gear: \"a weatherproof powerpoint\".",
+      "expected_output": "Recognises multiple real candidates that differ in a way that matters (10A vs 15A, IP53/IP54, white vs matte black) and ASKS for a pick rather than silently choosing one."
+    },
+    {
+      "id": 2,
+      "name": "trap-double-gpo",
+      "prompt": "You're helping enter gear onto a Fergus job for Linc Electrical. Match this dictated gear to real Fergus pricebook items and produce the mapping table only — do NOT push anything to Fergus, and you don't need a job number. Gear: \"three double power points\".",
+      "expected_output": "Does NOT confidently select the oddly-named recessed AV wall outlet (CDYAVRPS03) that a naive 'double power point' search surfaces. Either searches better terms (double socket / double powerpoint) to find a real standard double GPO, or flags it as ambiguous and asks. Quantity 3."
+    },
+    {
+      "id": 3,
+      "name": "downlight-model-pick",
+      "prompt": "You're helping enter gear onto a Fergus job for Linc Electrical. Match this dictated gear to real Fergus pricebook items and produce the mapping table only — do NOT push anything to Fergus, and you don't need a job number. Gear: \"two LED downlights\".",
+      "expected_output": "Surfaces several real downlight models (e.g. Nova, Slick, Lumascan) at their real prices and asks which model rather than silently committing to one. Quantity 2."
+    },
+    {
+      "id": 4,
+      "name": "multi-item-slang",
+      "prompt": "You're helping enter gear onto a Fergus job for Linc Electrical. Match this dictated gear to real Fergus pricebook items and produce the mapping table only — do NOT push anything to Fergus, and you don't need a job number. Gear: \"chuck 15 metres of 1.5 tps, a couple of batten holders, an RCBO, and mileage on it\".",
+      "expected_output": "1.5 TPS as per-metre qty 15; 2x batten holders; RCBO flagged for rating (amp/pole) since it's ambiguous; mileage recognised as a flat charge ($30 ex GST from the brain) NOT a pricebook search. Nothing invented."
+    }
+  ]
+}
