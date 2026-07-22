@@ -1,0 +1,409 @@
+# =============================================================================
+# LINC ELECTRICAL — COMPANY BRAIN
+# =============================================================================
+# The single source for "how we run the business" knowledge — the stuff that
+# usually only lives in someone's head. This one file replaces the old 8-folder
+# Google Drive structure (~45 docs/sheets/PDFs, plus 6 versions of some sheets).
+#
+# TWO RULES THAT STILL MATTER:
+#   1. Don't duplicate live systems. Fergus (jobs), Xero (accounts) and
+#      Glide (inventory/pricing) stay the single source of truth for THEIR data.
+#      This file holds only what ISN'T in them — and links to them, never copies
+#      (copies go stale). Anything marked `see:` points at the real source.
+#   2. Status is tracked per fact:
+#        confirmed  — verified from a live system or by Lincoln/Toni
+#        decided    — a judgement call that's been made
+#        draft      — reconstructed, needs a human to confirm
+#        conflict   — sources disagree, needs a decision (see open_questions)
+#        needs_human — nobody/no system has supplied it yet
+#
+# Last synced from Drive: 2026-07-22
+# =============================================================================
+
+company:
+  legal_name: Linc Electrical Limited
+  trading_name: Linc Electrical
+  structure: company
+  nzbn: "9429046932037"          # confirmed (Xero) — verify on nzbn.govt.nz
+  gst_number: "126-528-841"      # confirmed (Fergus)
+  financial_year: 1 April – 31 March
+  region: Manawatū, NZ
+
+  licence:
+    holder: Lincoln Russ
+    ewrb_registration: EW124670
+    ewrb_practising_licence: E263615
+    renewal: conflict            # 31-May-2026 vs 16-Apr-2028 — see open_questions.licence_renewal
+
+  contact:
+    phone: "027 3636190"         # confirmed (Fergus) — this is Lincoln's mobile; confirm if a separate office line exists
+    email: office@lincelectrical.co.nz
+    website: www.lincelectrical.co.nz   # being migrated GoDaddy -> Squarespace
+    workshop_address: 25a Bisley Street, Cloverlea, Palmerston North 4412
+    postal_address: PO Box 8083, Terrace End, Palmerston North 4441   # bank/postal correspondence
+
+  bank:
+    account_name: LINC ELECTRICAL LTD
+    bank: ANZ Business Current Account
+    account_number: "06-0746-0673877-00"
+    overdraft: false
+
+  insurance:
+    broker: Gallagher
+    renewal_date: 2027-07-01            # all Vero/Gallagher policies
+    policy_year: 1 Jul 2026 – 1 Jul 2027
+    policies:
+      - type: Public & Products Liability
+        insurer: Vero Liability Insurance Ltd
+        number: HO-LPL-6222995
+        cover: $10m any one occurrence / products aggregate, $250 excess
+      - type: Material Damage (stock & plant)
+        insurer: Monument Insurance (NZ) Ltd   # underwriting agent for IAG/AIG/Vero NZ
+        number: PY9G26N7-0
+        cover: SMARTpak wording
+      - type: Commercial Motor Vehicle
+        insurer: Vero (Smartpak)
+        number: null                          # in PDF only, not machine-readable
+        cover: Smartpak Commercial Motor Policy wording Sept 2024
+    ended:
+      - type: AMI Broadform / Statutory / Employers Liability
+        number: 20179116-ABP-004
+        note: ENDED (confirmed by Toni 22 Jul 2026), superseded by Vero. CHECK Statutory/Employers Liability equivalent still exists under new cover.
+
+  branding:
+    logo_pack: https://drive.google.com/drive/folders/12xFisUs9ea4OzbSN-7nVozg-aBvdXhp8
+    formats: [SVG, PNG, JPG, GIF, MP4, PDF]
+
+# -----------------------------------------------------------------------------
+# 02 — PEOPLE & ROLES
+# Charge-out rates are live in Fergus; full training/cert detail lives in the
+# Staff Training Matrix (see compliance.training_matrix). Don't retype it here.
+# -----------------------------------------------------------------------------
+people:
+  team:
+    - name: Lincoln Russ
+      email: linc@lincelectrical.co.nz
+      role: Electrician / Trainer / Licence holder
+      charge_out: 105
+      ewrb: EW124670 / E263615
+      phone: "027 3636190"
+      notes: 14 yrs, competency 4 (can train). Endorsement Supervision ES083810.
+    - name: Toni
+      email: toni@lincelectrical.co.nz
+      role: Co-owner / Office
+      charge_out: null            # non-billable office
+      notes: Runs ops.
+    - name: Deirdre Keall
+      email: accounts@lincelectrical.co.nz
+      role: Office / Accounts
+      charge_out: 0
+      notes: accounts@ inbox owner.
+    - name: Charl Fourie
+      email: charl@lincelectrical.co.nz
+      role: Electrician / Trainer
+      charge_out: 105
+      ewrb: EW122960 / E264806
+      notes: 15–16 yrs, competency 4 (can train). Endorsement Hazardous Areas EH080990.
+    - name: Joshua Moffett
+      email: josh@lincelectrical.co.nz
+      role: Apprentice
+      charge_out: 90
+      ewrb: EW152426 / TLC
+      notes: 6 yrs — works unsupervised.
+    - name: Ciaran Marshall
+      email: ciaran@lincelectrical.co.nz
+      role: Apprentice
+      charge_out: 95
+      ewrb: EW154836 / TLC
+      notes: 5 yrs — works unsupervised.
+    - name: Corey Bengston
+      email: corey@lincelectrical.co.nz
+      role: Apprentice
+      charge_out: 85
+      ewrb: EW198554 / TLC
+      notes: 2 yrs — works unsupervised.
+    - name: Logan Marriott
+      email: logan@lincelectrical.co.nz
+      role: Apprentice
+      charge_out: 80
+      ewrb: EW225428 / TLC
+      notes: New — requires full supervision.
+    - name: Cohen Turnbull
+      email: cohen.turnbull2005@gmail.com     # personal email — confirm current
+      role: Apprentice
+      charge_out: 70
+      ewrb: EW237891 / TLC
+      notes: New — requires full supervision.
+    - name: Caitlin Fuldseth
+      email: linelectrical2018@outlook.com    # personal email — confirm current
+      role: Office
+      charge_out: 55
+
+  # Former staff / duplicate logins still showing in Fergus — worth a cleanup.
+  disabled_fergus_users: [Admin Account, Beaudine Worthington, Darryl Peeti,
+    Jacob Satherley, James Zaloumis, Karmel Mahia (x2), Kelvin Price, Mike Grey,
+    Mitch Winters, duplicate Joshua Moffett login]
+
+  who_to_call:
+    accounts_invoicing: Deirdre Keall (accounts@)
+    switchboard_upgrades: needs_human
+    ordering_supplier_accounts: needs_human
+    overflow_extra_work: needs_human
+    after_hours_emergency: needs_human
+    quoting: needs_human
+
+  system_access:                 # who can get in — NOT passwords
+    fergus: needs_human
+    xero: Owners + PG (external accountant, Xero-only, year-end compliance)
+    google_workspace: Toni (admin), ops@ automation account
+    zapier: restricted to ops@ and owners
+
+# -----------------------------------------------------------------------------
+# 03 — SUPPLIERS & ACCOUNTS
+# Product prices live in Fergus pricebooks — never copy them here.
+# Gaps: search Gmail "[supplier] statement" / "[supplier] account" — wholesalers
+# put their bank + your account ref in the statement email body.
+# -----------------------------------------------------------------------------
+suppliers:
+  main:
+    - name: Ideal Electrical
+      account_ref: "463085"
+      pricebook_items: 65664
+      notes: Sole/main wholesaler. Runs 'AmpedUp Rewards' trade loyalty; monthly statements come through it.
+    - name: Voltex
+      account_ref: CUST-014753
+      pricebook_items: 1415
+      rep: Libby Walker (Customer Experience) — libby.w@voltex.com
+      email: accounts@voltex.com (statements) / admin@voltexelectrical.co.nz (remittance)
+      their_bank: Voltex Electrical Limited — 12-3476-0019464-00
+      terms: Monthly statement, payment due ~20th
+      notes: Lighting/downlights — 7-year downlight warranty. Online portal + app.
+    - name: Corys
+      pricebook_items: 195963
+      notes: Large legacy pricebook — confirm still active. Statements have gone to PG Accountants before.
+    - name: JA Russell
+      pricebook_items: 63637
+    - name: Phoenix Contact
+      pricebook_items: 39140
+    - name: NHP Electrical Engineering
+      pricebook_items: 30728
+      rep: Dorotea Madsen (DMadsen@nhp-nz.com), cc Adam Kane (AKane@nhp-nz.com)
+      notes: Credit account applied for Jan 2026 via Charl — confirm account number issued.
+    - name: Actrol
+      pricebook_items: 4078
+      notes: HVAC/refrigeration parts.
+    - name: Realcold NZ
+      pricebook_items: 1254
+    - name: Active Electrical Suppliers
+      pricebook_items: 717
+
+  occasional:                    # contact detail where Fergus has it
+    - { name: EMF Switchboards Ltd, email: "sales@kvar.co.nz / andy@emf.net.nz / sales@emf.net.nz" }
+    - { name: Hirepool Equipment Hire PN, email: palmerstonnorth.branch@hirepool.co.nz }
+    - { name: PPS Machinery Relocations, email: "brian@pps.net.nz / admin@pps.net.nz" }
+    - { name: Electrolux, email: sales@electrolux.co.nz }
+  other_on_file: [Mitre 10, Bunnings, Reece, Smooth Air, Advance Electrical,
+    Genesis Energy, Powerco, Steel & Tube, Jaycar, PB Tech]
+  full_list_see: Fergus > Pricebooks
+
+# -----------------------------------------------------------------------------
+# 04 — RATES & RULES  (the engine the quote-builder runs on)
+# -----------------------------------------------------------------------------
+rates_and_rules:
+  labour_ex_gst:
+    electrician: 95            # standardised quoting rate (not individual pay — see people.team)
+    apprentice: 75
+    minimum_charge: 1 hour labour per electrician per visit
+
+  flat_charges_ex_gst:
+    mileage: 30
+    sundries: 20
+    certificate_of_compliance: 20
+
+  materials_markup:
+    floor: 1.67                # Cost x 1.67 minimum (67% floor). Replaced the old cost/0.6 rule (Jul 2026).
+    bands:                     # % markup on cost
+      cable_wire_per_m: 100–130%
+      standard_accessories: 150–280%     # GPOs, switches, plates
+      loose_consumables: 150–300%        # or use flat sundries line
+      brand_visible_googleable: 70–90%   # e.g. downlights
+      big_ticket_checkable: 67–80%       # switchboards, RCBOs, named gear
+    fixed_price_items: Rangehood / heat pump / set appliances are FIXED price, not formula-based (see quote-builder skill for figures).
+
+  gross_profit_target: 30–40%  # whole job (materials + labour). Flag any quote under 30% GP before it goes out.
+
+  gst_handling: >
+    Push clean ex-GST sell prices to Fergus. The Fergus API can't set the GST column, so GST is
+    applied manually in the Fergus UI per line. NEVER gross up x1.15 AND apply the column — that
+    double-charges. (Critical operational rule — see quote-builder skill.)
+
+  quoting:
+    line_item_style: "Supply & install [item] in [location]. Test & certify."   # pricing shown separately
+    workmanship_guarantee: 12 months
+    quote_validity: conflict   # due-date field says 60 days, footer text says 30 days — see open_questions
+
+  payment_terms:
+    trade_account: Invoices due 20th of the month following invoice date.
+    domestic: Payment due on completion unless credit approved in writing.
+
+  deposits:                    # decided 22 Jul 2026 from real Fergus invoice distribution
+    under_500: No deposit — payment on completion.
+    500_to_2000: Up to 50% deposit before work begins; balance on completion.
+    over_2000: No deposit, but first progress claim due at commencement; min 3 staged claims to completion.
+    clause_see: templates.deposit_clause   # exact wording ready to paste into Terms of Trade
+
+  terms_of_trade_rules:        # from MASTER Terms of Trade (updated 1 Jan 2026, under review by Deirdre)
+    fault_finding: Chargeable whether or not a fault is found or repaired.
+    cancellation: Under 24h notice may incur charges (allocated labour, travel, admin, materials ordered, lost booking).
+    retention_of_title: Materials remain Linc's property until paid in full.
+    overdue_accounts: Interest + reasonable debt recovery/legal/enforcement costs may apply.
+
+# -----------------------------------------------------------------------------
+# 05 — PROCESSES & SOPs   (status: draft — Lincoln/Toni to confirm & fill gaps)
+# -----------------------------------------------------------------------------
+processes:
+  how_we_quote:                # draft
+    - Enquiry in (phone, email, or channel like Tapi for PM work).
+    - Site look / scope confirmed.
+    - Cost materials from live Fergus pricebooks; apply markup rules; check whole job vs 30–40% GP target.
+    - Write up in Fergus as Quote/Estimate using standard line format + intro + terms.
+    - Send to customer.
+    - "needs_human: follow-up cadence if no reply (template ready — see templates.quote_follow_up)."
+  job_start_to_finish:         # draft
+    - Quote/Estimate accepted -> job goes Active in Fergus.
+    - Scheduled and worked (Fergus job phases).
+    - "needs_human: end-of-job steps (photos, CoC, ask for review)."
+    - Finalised in Fergus, invoiced through to Xero.
+    - Payment chased per payment_terms.
+  job_completion_checklist: needs_human   # photos? CoC/ESC lodged? site tidy? customer signed off?
+  end_of_job_process: needs_human         # photos, CoC, invoice, review request
+  ordering_process: needs_human           # how materials get from supplier (mainly Ideal, acct 463085) onto a Fergus job
+
+# -----------------------------------------------------------------------------
+# 06 — TEMPLATES & WORDING
+# -----------------------------------------------------------------------------
+templates:
+  quote_intro: |            # confirmed — pulled from live quotes, kept as-is
+    Thank you for the opportunity to price the work on your property.
+
+    Our mission is to make every customer a repeat customer. As part of our service all quoted
+    work comes with a 12 month workmanship guarantee. Customer service is everything to us and
+    we have the systems in place so that we deliver on our promises.
+
+    We have provided you with our best value price based on the information we have, we are
+    always open to a conversation on our quoted amount, please call or email the office if you
+    have any queries about this price.
+
+  quote_follow_up: |        # draft — matches quote-intro tone, edit freely
+    Kia ora [Name], just following up on the quote we sent through on [date] for [job]. Happy to
+    talk through any part of it or adjust the scope if needed — give the office a call on
+    027 3636190 or reply to this email. The quote's valid for 60 days from when it was sent.
+    Cheers, [Name] / Linc Electrical
+
+  review_request: |         # draft — add your Google review link
+    Kia ora [Name], glad we could get that sorted for you. If you've got a minute, a quick
+    Google review would mean a lot and helps other people in [Manawatū/Palmerston North] find
+    us. [review link]. Thanks again for choosing Linc Electrical. Cheers, [Name]
+
+  deposit_clause: |         # ready to paste into MASTER Terms of Trade (near payment terms)
+    Deposits and progress payments
+    For jobs under $500, no deposit is required — payment is due on completion, as set out above.
+    For jobs between $500 and $2,000, we may require a deposit of up to 50% of the estimated
+    price before work begins, with the balance payable on completion.
+    For larger jobs and contract works over $2,000, we do not require a deposit, but the first
+    progress claim is due at commencement of work, to cover materials ordered and scheduling
+    committed on your behalf. Further progress claims will be invoiced at agreed milestones as
+    the work proceeds (a minimum of three stages), with a final claim due on completion.
+    We may vary these amounts or stages where a job involves unusual material cost,
+    custom-ordered items, or an extended lead time, and will confirm this with you in writing
+    before work begins.
+
+  terms_of_trade_master: https://docs.google.com/document/d/1V0m1GSJcGeAZwjP_2UffRnz3Sc7d-6GwBE0-yCcaPDk
+
+  needs_human: [overdue_invoice_nudge, booking_confirmation, sms_templates]
+
+# -----------------------------------------------------------------------------
+# 07 — COMPLIANCE & SAFETY
+# Can't be filled from Fergus/Xero — most of this is human-supplied.
+# -----------------------------------------------------------------------------
+compliance:
+  training_matrix: https://drive.google.com/file/d/1FMm0-JPaAURvlEpCvhLxdDq-nTcy3ioGttYq_b2qH14
+  # ^ primary source: EWRB regn/licence, endorsements, SiteSafe, first aid, working at heights,
+  #   MEWP, confined spaces, asbestos, permit receiver, filler expiries per staff member.
+  #   NOTE: Sheet1 and Sheet2 disagree on some dates — worth reconciling into one tab.
+
+  licences:
+    - person: Lincoln Russ
+      ref: EW124670 / E263615
+      renewal: conflict                # see open_questions.licence_renewal
+    - person: Charl Fourie
+      ref: EW122960 / E264806
+      renewal: 2028-04-16
+      endorsement: Hazardous Areas EH080990
+    - apprentices: [Ciaran, Corey, Logan, Josh, Cohen]
+      status: In Process / TLC — see training_matrix
+
+  insurance_see: company.insurance   # single source above, don't duplicate
+
+  needs_human:
+    vehicle_wof_cof: null            # one per vehicle
+    test_equipment_calibration: null
+    coc_template: null               # link file here or in a Templates & Certs subfolder
+    hazard_register_swms: null
+
+# -----------------------------------------------------------------------------
+# 08 — CUSTOMERS & JOB TYPES
+# Reference only — the live customer list stays in Fergus.
+# Fergus job types in use: Charge Up, Quote, Estimate.
+# -----------------------------------------------------------------------------
+customers_and_job_types:
+  job_types:
+    - { type: Oven repair / supply & replace, customer: PMs, homeowners }
+    - { type: Cooktop / rangehood / extractor, note: fixed-price standard for PM jobs }
+    - { type: HWC electrical, customer: plumbers, PMs, note: connect/disconnect/rewire, gas-to-electric }
+    - { type: Power points, note: new, weatherproof, EV-hybrid outdoor, AV/monitor points }
+    - { type: Lighting, note: fittings, LED downlights, fault repair, Voltex downlight 7yr warranty }
+    - { type: Switchboard, note: upgrades & faults — often urgent }
+    - { type: Heat pump / HVAC / HRV, note: supply/install & servicing; needs pros/cons grid per unit }
+    - { type: Faults & callouts, note: outages (urgent & after-hours), fault-finding }
+    - { type: Full rewire incl. switchboard, note: often an Estimate to help negotiate a house purchase }
+    - { type: Generator repair, customer: commercial, trade }
+    - { type: Solar / PV, note: high-risk PEW — needs independent inspector's Record of Inspection + CoC/ESC }
+
+  segments:
+    property_management: MAJOR repeat channel — much via the Tapi work-order platform. Keep warm.
+    trade_partners: plumbers, mechanics, AV installers
+    property_maintenance: ongoing repairs & make-goods
+    commercial: auto parts, fuel storage, motels, rail
+    community: social services & churches — occasional
+    homeowners: direct enquiries
+    insurance_home_assistance: callout work via assistance providers
+
+  # Profitability + chase-or-avoid calls per job type = a judgement only Lincoln/Toni can make.
+  profitability: needs_human
+
+# -----------------------------------------------------------------------------
+# OPEN QUESTIONS — sources conflict, a human must decide
+# -----------------------------------------------------------------------------
+open_questions:
+  licence_renewal: >
+    Lincoln's EWRB practising licence has two renewal dates in the Training Matrix:
+    Sheet1 = 31-May-2026 (already passed), Sheet2 + April 2026 PDF = 16-Apr-2028.
+    Confirm which is correct — if Sheet1 is right it may already need renewing.
+  quote_validity: >
+    Quote due-date field says 60 days; the footer text customers see says 30 days.
+    Decide which is correct and make them match.
+  office_phone: Confirm whether a landline/office line exists beyond Lincoln's mobile (027 3636190).
+  statutory_employers_liability: Confirm equivalent cover exists under Vero now that AMI policy has ended.
+
+# -----------------------------------------------------------------------------
+# NEEDS HUMAN — facts no system holds, still to be supplied
+# (Everything else above is confirmed or decided.)
+# -----------------------------------------------------------------------------
+needs_human:
+  - people: job titles already done; phone numbers for staff; "who to call for what"; Fergus access list
+  - suppliers: account numbers, reps, phone, payment terms for Ideal/Corys/JA Russell (Voltex & NHP done)
+  - processes: job completion checklist, end-of-job process, ordering process
+  - templates: overdue invoice nudge, booking confirmation, SMS templates
+  - compliance: vehicle WoF/COF, test-equipment calibration, CoC template, hazard register/SWMS
+  - customers: profitability + chase-or-avoid calls per job type
