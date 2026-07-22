@@ -1,0 +1,362 @@
+<title>Linc Electrical — Company Brain</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --paper:#F1F3F5; --surface:#FFFFFF; --surface-2:#F7F9FB;
+    --ink:#1B2127; --ink-soft:#586572; --ink-faint:#8A97A3;
+    --line:#E1E6EA; --line-strong:#CDD5DC;
+    --accent:#B15522; --accent-soft:#F3E6DD;
+    --ok:#2E7D52; --ok-bg:#E4F1EA;
+    --decided:#2F6FB0; --decided-bg:#E4EEF7;
+    --draft:#9A7B10; --draft-bg:#F5EFD8;
+    --conflict:#BE3A2B; --conflict-bg:#F8E4E1;
+    --todo:#6B7783; --todo-bg:#ECEFF2;
+    --mono:ui-monospace,SFMono-Regular,Menlo,"Cascadia Code","Roboto Mono",monospace;
+    --sans:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --paper:#12161A; --surface:#191F25; --surface-2:#1F262D;
+      --ink:#ECF0F3; --ink-soft:#9EABB6; --ink-faint:#6C7883;
+      --line:#28313A; --line-strong:#38434E;
+      --accent:#DD8A55; --accent-soft:#33261D;
+      --ok:#54B889; --ok-bg:#16281F;
+      --decided:#67A6DE; --decided-bg:#152532;
+      --draft:#D3AC43; --draft-bg:#2A2410;
+      --conflict:#E8776639; --conflict:#EB7B6A; --conflict-bg:#2E1815;
+      --todo:#95A2AD; --todo-bg:#232B32;
+    }
+  }
+  :root[data-theme="light"]{
+    --paper:#F1F3F5; --surface:#FFFFFF; --surface-2:#F7F9FB;
+    --ink:#1B2127; --ink-soft:#586572; --ink-faint:#8A97A3;
+    --line:#E1E6EA; --line-strong:#CDD5DC; --accent:#B15522; --accent-soft:#F3E6DD;
+    --ok:#2E7D52; --ok-bg:#E4F1EA; --decided:#2F6FB0; --decided-bg:#E4EEF7;
+    --draft:#9A7B10; --draft-bg:#F5EFD8; --conflict:#BE3A2B; --conflict-bg:#F8E4E1;
+    --todo:#6B7783; --todo-bg:#ECEFF2;
+  }
+  :root[data-theme="dark"]{
+    --paper:#12161A; --surface:#191F25; --surface-2:#1F262D;
+    --ink:#ECF0F3; --ink-soft:#9EABB6; --ink-faint:#6C7883;
+    --line:#28313A; --line-strong:#38434E; --accent:#DD8A55; --accent-soft:#33261D;
+    --ok:#54B889; --ok-bg:#16281F; --decided:#67A6DE; --decided-bg:#152532;
+    --draft:#D3AC43; --draft-bg:#2A2410; --conflict:#EB7B6A; --conflict-bg:#2E1815;
+    --todo:#95A2AD; --todo-bg:#232B32;
+  }
+
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+    line-height:1.5;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px 80px;}
+
+  /* ---- header ---- */
+  header{padding:44px 0 28px;}
+  .brandrail{display:flex;align-items:center;gap:14px;}
+  .brandrail .bar{width:4px;height:38px;background:var(--accent);border-radius:2px;}
+  .brand{font-family:var(--mono);font-weight:700;letter-spacing:.14em;font-size:15px;text-transform:uppercase;}
+  h1{font-size:clamp(28px,4.5vw,44px);line-height:1.08;margin:22px 0 8px;letter-spacing:-.02em;text-wrap:balance;font-weight:700;}
+  .lede{color:var(--ink-soft);font-size:17px;max-width:60ch;margin:0;}
+  .synced{font-family:var(--mono);font-size:12px;color:var(--ink-faint);margin-top:14px;letter-spacing:.02em;}
+
+  /* ---- summary tiles ---- */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:28px 0 8px;}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;}
+  .tile .n{font-family:var(--mono);font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1;}
+  .tile .l{font-size:12.5px;color:var(--ink-soft);margin-top:8px;text-transform:uppercase;letter-spacing:.06em;}
+  .tile.ok .n{color:var(--ok)} .tile.decided .n{color:var(--decided)}
+  .tile.conflict .n{color:var(--conflict)} .tile.todo .n{color:var(--todo)}
+
+  /* ---- attention band ---- */
+  .attention{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--conflict);
+    border-radius:12px;padding:22px 24px;margin:26px 0;}
+  .attention h2{margin:0 0 4px;font-size:18px;}
+  .attention .sub{color:var(--ink-soft);font-size:14px;margin:0 0 16px;}
+  .qgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;}
+  .q{background:var(--conflict-bg);border-radius:9px;padding:13px 15px;}
+  .q .qk{font-family:var(--mono);font-size:12px;color:var(--conflict);font-weight:700;letter-spacing:.02em;}
+  .q p{margin:5px 0 0;font-size:13.5px;color:var(--ink);}
+
+  /* ---- section grid ---- */
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:26px;}
+  .grid .span2{grid-column:1/-1;}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  section.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 24px;}
+  .eyebrow{font-family:var(--mono);font-size:12px;color:var(--accent);letter-spacing:.04em;display:flex;gap:8px;align-items:baseline;}
+  .eyebrow .idx{color:var(--ink-faint);}
+  section.card h2{font-size:19px;margin:7px 0 16px;letter-spacing:-.01em;}
+
+  /* ---- key/value rows ---- */
+  .kv{display:flex;flex-direction:column;gap:9px;}
+  .row{display:grid;grid-template-columns:170px 1fr;gap:14px;align-items:baseline;}
+  @media(max-width:520px){.row{grid-template-columns:1fr;gap:2px}}
+  .k{font-family:var(--mono);font-size:12.5px;color:var(--ink-soft);letter-spacing:.01em;}
+  .v{font-size:14.5px;color:var(--ink);}
+  .v .note{color:var(--ink-faint);font-size:12.5px;}
+  .mask{font-family:var(--mono);letter-spacing:.04em;}
+
+  /* ---- pills ---- */
+  .pill{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:10.5px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.06em;padding:2.5px 8px;border-radius:100px;white-space:nowrap;}
+  .pill::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;}
+  .p-ok{color:var(--ok);background:var(--ok-bg)} .p-decided{color:var(--decided);background:var(--decided-bg)}
+  .p-draft{color:var(--draft);background:var(--draft-bg)} .p-conflict{color:var(--conflict);background:var(--conflict-bg)}
+  .p-todo{color:var(--todo);background:var(--todo-bg)}
+
+  /* ---- tables ---- */
+  .scroll{overflow-x:auto;margin:0 -4px;}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:420px;}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);font-weight:600;}
+  td .num{font-variant-numeric:tabular-nums;font-family:var(--mono);}
+  tbody tr:last-child td{border-bottom:none}
+
+  ul.clean{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;}
+  ul.clean li{font-size:14px;padding-left:20px;position:relative;}
+  ul.clean li::before{content:"";position:absolute;left:2px;top:9px;width:6px;height:6px;border-radius:50%;background:var(--accent);}
+  ul.steps{counter-reset:s;list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px;}
+  ul.steps li{counter-increment:s;font-size:14px;padding-left:30px;position:relative;color:var(--ink);}
+  ul.steps li::before{content:counter(s);position:absolute;left:0;top:0;font-family:var(--mono);font-size:11px;font-weight:700;
+    color:var(--accent);background:var(--accent-soft);width:20px;height:20px;border-radius:6px;display:grid;place-items:center;}
+  ul.steps li.todo{color:var(--ink-soft)}
+
+  .block{background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:13px 15px;font-size:13px;
+    color:var(--ink-soft);white-space:pre-wrap;line-height:1.55;}
+  .tag{font-family:var(--mono);font-size:11px;color:var(--ink-faint);}
+  a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent;}
+  a:hover{border-bottom-color:var(--accent);}
+  .divider{height:1px;background:var(--line);margin:16px 0;}
+  h3.mini{font-size:12px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin:18px 0 10px;font-weight:600;}
+  footer{margin-top:40px;padding-top:20px;border-top:1px solid var(--line);color:var(--ink-faint);font-size:12.5px;}
+  footer .legend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="brandrail"><span class="bar"></span><span class="brand">Linc Electrical</span></div>
+  <h1>Company Brain</h1>
+  <p class="lede">The whole business in one place — every fact that usually lives in someone's head, with a status on each so you always know what's solid and what still needs an eye.</p>
+  <p class="synced">// coded from the-brain · single source · last synced 2026-07-22</p>
+
+  <div class="tiles">
+    <div class="tile ok"><div class="n">31</div><div class="l">Confirmed</div></div>
+    <div class="tile decided"><div class="n">5</div><div class="l">Decided</div></div>
+    <div class="tile conflict"><div class="n">4</div><div class="l">Open questions</div></div>
+    <div class="tile todo"><div class="n">18</div><div class="l">Need you</div></div>
+  </div>
+</header>
+
+<!-- ATTENTION FIRST -->
+<div class="attention">
+  <h2>Needs a decision</h2>
+  <p class="sub">Four places where the sources disagree — a person has to pick.</p>
+  <div class="qgrid">
+    <div class="q"><span class="qk">licence_renewal</span><p>Lincoln's EWRB practising licence shows two renewal dates: 31 May 2026 (passed) vs 16 Apr 2028. Confirm which — the earlier one may already be overdue.</p></div>
+    <div class="q"><span class="qk">quote_validity</span><p>Quote due-date field says 60 days; the footer customers read says 30 days. Pick one and make them match.</p></div>
+    <div class="q"><span class="qk">office_phone</span><p>Is there a landline/office line beyond Lincoln's mobile (027 3636190)?</p></div>
+    <div class="q"><span class="qk">statutory_employers_liability</span><p>Confirm equivalent cover exists under Vero now the AMI policy has ended.</p></div>
+  </div>
+</div>
+
+<div class="grid">
+
+  <!-- 01 COMPANY -->
+  <section class="card span2">
+    <div class="eyebrow"><span class="idx">01</span><span>company</span></div>
+    <h2>Company core</h2>
+    <div class="kv">
+      <div class="row"><span class="k">legal_name</span><span class="v">Linc Electrical Limited <span class="note">(trades as Linc Electrical)</span> <span class="pill p-ok">confirmed</span></span></div>
+      <div class="row"><span class="k">nzbn</span><span class="v"><span class="mask">9429046932037</span></span></div>
+      <div class="row"><span class="k">gst_number</span><span class="v"><span class="mask">126-528-841</span></span></div>
+      <div class="row"><span class="k">financial_year</span><span class="v">1 April – 31 March</span></div>
+      <div class="row"><span class="k">licence_holder</span><span class="v">Lincoln Russ — EW124670 / E263615 <span class="pill p-conflict">renewal conflict</span></span></div>
+      <div class="row"><span class="k">phone</span><span class="v">027 3636190 <span class="note">(Lincoln's mobile — confirm office line)</span></span></div>
+      <div class="row"><span class="k">email</span><span class="v">office@lincelectrical.co.nz</span></div>
+      <div class="row"><span class="k">website</span><span class="v">www.lincelectrical.co.nz <span class="note">(migrating → Squarespace)</span></span></div>
+      <div class="row"><span class="k">workshop</span><span class="v">25a Bisley Street, Cloverlea, Palmerston North 4412</span></div>
+      <div class="row"><span class="k">bank</span><span class="v">ANZ Business Current — <span class="mask">••-••••-•••3877-00</span> <span class="note">(masked)</span></span></div>
+    </div>
+    <div class="divider"></div>
+    <h3 class="mini">Insurance — broker Gallagher · renews 1 Jul 2027</h3>
+    <div class="scroll"><table>
+      <thead><tr><th>Policy</th><th>Insurer</th><th>Number</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Public & Products Liability ($10m)</td><td>Vero</td><td class="num">HO-LPL-6222995</td><td><span class="pill p-ok">active</span></td></tr>
+        <tr><td>Material Damage (stock & plant)</td><td>Monument</td><td class="num">PY9G26N7-0</td><td><span class="pill p-ok">active</span></td></tr>
+        <tr><td>Commercial Motor Vehicle</td><td>Vero (Smartpak)</td><td class="num">in PDF only</td><td><span class="pill p-ok">active</span></td></tr>
+        <tr><td>AMI Broadform / Statutory / Employers</td><td>AMI/IAG</td><td class="num">20179116-ABP-004</td><td><span class="pill p-todo">ended</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <!-- 02 PEOPLE -->
+  <section class="card span2">
+    <div class="eyebrow"><span class="idx">02</span><span>people</span></div>
+    <h2>People &amp; roles <span class="pill p-ok">rates confirmed</span></h2>
+    <p class="tag" style="margin:-6px 0 14px">Quoting rates are live in Fergus · full cert detail lives in the Staff Training Matrix</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Name</th><th>Role</th><th>Charge-out</th><th>EWRB</th></tr></thead>
+      <tbody>
+        <tr><td>Lincoln Russ</td><td>Electrician / Trainer / Licence holder</td><td class="num">$105</td><td class="num">EW124670</td></tr>
+        <tr><td>Charl Fourie</td><td>Electrician / Trainer</td><td class="num">$105</td><td class="num">EW122960</td></tr>
+        <tr><td>Ciaran Marshall</td><td>Apprentice · unsupervised</td><td class="num">$95</td><td class="num">EW154836</td></tr>
+        <tr><td>Joshua Moffett</td><td>Apprentice · unsupervised</td><td class="num">$90</td><td class="num">EW152426</td></tr>
+        <tr><td>Corey Bengston</td><td>Apprentice · unsupervised</td><td class="num">$85</td><td class="num">EW198554</td></tr>
+        <tr><td>Logan Marriott</td><td>Apprentice · supervised</td><td class="num">$80</td><td class="num">EW225428</td></tr>
+        <tr><td>Cohen Turnbull</td><td>Apprentice · supervised</td><td class="num">$70</td><td class="num">EW237891</td></tr>
+        <tr><td>Caitlin Fuldseth</td><td>Office</td><td class="num">$55</td><td>—</td></tr>
+        <tr><td>Toni</td><td>Co-owner / Office</td><td>—</td><td>—</td></tr>
+        <tr><td>Deirdre Keall</td><td>Office / Accounts</td><td class="num">$0</td><td>—</td></tr>
+      </tbody>
+    </table></div>
+    <p class="tag" style="margin-top:12px">Needs you: staff phone numbers · "who to call for what" · Fergus access list · a Fergus/Matrix cleanup of ~11 disabled logins.</p>
+  </section>
+
+  <!-- 04 RATES -->
+  <section class="card">
+    <div class="eyebrow"><span class="idx">04</span><span>rates_and_rules</span></div>
+    <h2>Rates &amp; rules</h2>
+    <div class="kv">
+      <div class="row"><span class="k">labour · elec</span><span class="v">$95/hr + GST</span></div>
+      <div class="row"><span class="k">labour · appr</span><span class="v">$75/hr + GST</span></div>
+      <div class="row"><span class="k">min charge</span><span class="v">1 hr labour / electrician / visit</span></div>
+      <div class="row"><span class="k">mileage</span><span class="v">$30 · sundries $20 · CoC $20</span></div>
+      <div class="row"><span class="k">markup floor</span><span class="v"><strong>Cost × 1.67</strong> minimum (67%)</span></div>
+      <div class="row"><span class="k">GP target</span><span class="v">30–40% whole job <span class="note">— flag under 30%</span></span></div>
+    </div>
+    <h3 class="mini">Markup bands (on cost)</h3>
+    <div class="scroll"><table>
+      <tbody>
+        <tr><td>Cable / wire per m</td><td class="num">100–130%</td></tr>
+        <tr><td>Standard accessories</td><td class="num">150–280%</td></tr>
+        <tr><td>Loose consumables</td><td class="num">150–300%</td></tr>
+        <tr><td>Brand-visible (downlights)</td><td class="num">70–90%</td></tr>
+        <tr><td>Big-ticket / checkable</td><td class="num">67–80%</td></tr>
+        <tr><td>Rangehood / heat pump</td><td class="num">fixed</td></tr>
+      </tbody>
+    </table></div>
+    <h3 class="mini">GST rule <span class="pill p-conflict" style="text-transform:none">critical</span></h3>
+    <p class="block">Push clean ex-GST sell prices to Fergus. The API can't set the GST column, so it's applied by hand in the UI per line. Never gross up ×1.15 AND apply the column — that double-charges.</p>
+  </section>
+
+  <!-- deposits + payment -->
+  <section class="card">
+    <div class="eyebrow"><span class="idx">04</span><span>payment &amp; deposits</span></div>
+    <h2>Getting paid <span class="pill p-decided">decided</span></h2>
+    <h3 class="mini">Payment terms</h3>
+    <div class="kv">
+      <div class="row"><span class="k">trade / account</span><span class="v">Due 20th of month following invoice</span></div>
+      <div class="row"><span class="k">domestic</span><span class="v">On completion unless credit approved in writing</span></div>
+    </div>
+    <h3 class="mini">Deposits — decided 22 Jul 2026</h3>
+    <div class="scroll"><table>
+      <thead><tr><th>Job size</th><th>Rule</th></tr></thead>
+      <tbody>
+        <tr><td class="num">&lt; $500</td><td>No deposit — pay on completion</td></tr>
+        <tr><td class="num">$500–2,000</td><td>Up to 50% before work; balance on completion</td></tr>
+        <tr><td class="num">&gt; $2,000</td><td>First progress claim at start; min 3 staged claims</td></tr>
+      </tbody>
+    </table></div>
+    <p class="tag" style="margin-top:12px">Clause wording is drafted and ready to paste into the master Terms of Trade.</p>
+  </section>
+
+  <!-- 03 SUPPLIERS -->
+  <section class="card span2">
+    <div class="eyebrow"><span class="idx">03</span><span>suppliers</span></div>
+    <h2>Suppliers &amp; accounts</h2>
+    <p class="tag" style="margin:-6px 0 14px">Product prices live in Fergus pricebooks — never copied here.</p>
+    <div class="scroll"><table>
+      <thead><tr><th>Supplier</th><th>Account ref</th><th>Pricebook</th><th>Detail</th></tr></thead>
+      <tbody>
+        <tr><td>Ideal Electrical <span class="pill p-ok">main</span></td><td class="num">463085</td><td class="num">65,664</td><td>Sole/main wholesaler · AmpedUp Rewards</td></tr>
+        <tr><td>Voltex</td><td class="num">CUST-014753</td><td class="num">1,415</td><td>Lighting · 7yr downlight warranty · full detail on file</td></tr>
+        <tr><td>Corys</td><td>—</td><td class="num">195,963</td><td>Legacy — confirm still active</td></tr>
+        <tr><td>JA Russell</td><td>—</td><td class="num">63,637</td><td>Account details needed</td></tr>
+        <tr><td>Phoenix Contact</td><td>—</td><td class="num">39,140</td><td>—</td></tr>
+        <tr><td>NHP</td><td>—</td><td class="num">30,728</td><td>Credit acct applied Jan 2026 — confirm issued</td></tr>
+        <tr><td>Actrol</td><td>—</td><td class="num">4,078</td><td>HVAC / refrigeration</td></tr>
+      </tbody>
+    </table></div>
+    <p class="tag" style="margin-top:12px">Needs you: account numbers, reps &amp; terms for Ideal, Corys, JA Russell. Tip — search Gmail "[supplier] statement"; the bank + account ref is usually in the email body.</p>
+  </section>
+
+  <!-- 05 PROCESSES -->
+  <section class="card">
+    <div class="eyebrow"><span class="idx">05</span><span>processes</span></div>
+    <h2>How we quote <span class="pill p-draft">draft</span></h2>
+    <ul class="steps">
+      <li>Enquiry in (phone, email, or Tapi for PM work)</li>
+      <li>Site look / scope confirmed</li>
+      <li>Cost from Fergus pricebooks → apply markup → check vs GP target</li>
+      <li>Write up in Fergus with standard line format + intro + terms</li>
+      <li>Send to customer</li>
+      <li class="todo">Follow-up cadence if no reply — needs you</li>
+    </ul>
+    <h3 class="mini">Job: start → finish</h3>
+    <ul class="steps">
+      <li>Accepted → job goes Active in Fergus</li>
+      <li>Scheduled &amp; worked (Fergus phases)</li>
+      <li class="todo">End-of-job steps: photos, CoC, review — needs you</li>
+      <li>Finalised in Fergus → invoiced to Xero</li>
+      <li>Payment chased per terms</li>
+    </ul>
+  </section>
+
+  <!-- 06 TEMPLATES -->
+  <section class="card">
+    <div class="eyebrow"><span class="idx">06</span><span>templates</span></div>
+    <h2>Templates &amp; wording</h2>
+    <ul class="clean">
+      <li>Quote introduction <span class="pill p-ok">confirmed</span></li>
+      <li>Line-item style: "Supply &amp; install [item] in [location]. Test &amp; certify." <span class="pill p-ok">confirmed</span></li>
+      <li>Quote follow-up email <span class="pill p-draft">draft</span></li>
+      <li>Review request <span class="pill p-draft">draft</span></li>
+      <li>Deposit clause <span class="pill p-draft">draft</span></li>
+      <li>Terms of Trade — <a href="https://docs.google.com/document/d/1V0m1GSJcGeAZwjP_2UffRnz3Sc7d-6GwBE0-yCcaPDk">master doc</a> <span class="pill p-ok">linked</span></li>
+      <li>Overdue nudge · booking confirm · SMS <span class="pill p-todo">needs you</span></li>
+    </ul>
+    <p class="block">Thank you for the opportunity to price the work on your property. Our mission is to make every customer a repeat customer. As part of our service all quoted work comes with a 12 month workmanship guarantee…</p>
+  </section>
+
+  <!-- 07 COMPLIANCE -->
+  <section class="card">
+    <div class="eyebrow"><span class="idx">07</span><span>compliance</span></div>
+    <h2>Compliance &amp; safety</h2>
+    <div class="kv">
+      <div class="row"><span class="k">Lincoln licence</span><span class="v">EW124670 / E263615 <span class="pill p-conflict">renewal conflict</span></span></div>
+      <div class="row"><span class="k">Charl licence</span><span class="v">EW122960 · renews 16 Apr 2028 <span class="pill p-ok">active</span></span></div>
+      <div class="row"><span class="k">apprentices</span><span class="v">EWRB In Process / TLC — see Matrix</span></div>
+      <div class="row"><span class="k">training matrix</span><span class="v"><a href="https://drive.google.com/file/d/1FMm0-JPaAURvlEpCvhLxdDq-nTcy3ioGttYq_b2qH14">source doc</a> <span class="note">(Sheet1/2 dates disagree)</span></span></div>
+    </div>
+    <p class="tag" style="margin-top:12px">Needs you: vehicle WoF/COF · test-equipment calibration · CoC template · hazard register / SWMS.</p>
+  </section>
+
+  <!-- 08 CUSTOMERS -->
+  <section class="card">
+    <div class="eyebrow"><span class="idx">08</span><span>customers_and_job_types</span></div>
+    <h2>Customers &amp; job types</h2>
+    <p class="tag" style="margin:-6px 0 12px">Reference only — live list stays in Fergus.</p>
+    <h3 class="mini" style="margin-top:2px">Segments</h3>
+    <ul class="clean">
+      <li><strong>Property management / rentals</strong> — major repeat channel via Tapi. Keep warm.</li>
+      <li>Trade partners — plumbers, mechanics, AV installers</li>
+      <li>Commercial — auto parts, fuel storage, motels, rail</li>
+      <li>Homeowners · insurance / home-assistance · community</li>
+    </ul>
+    <h3 class="mini">Common work</h3>
+    <p class="v" style="font-size:13.5px">Oven/cooktop/rangehood · HWC · power points · lighting (LED downlights) · switchboard upgrades · heat pump/HVAC · faults &amp; callouts · full rewires · solar/PV.</p>
+    <p class="tag" style="margin-top:12px">Needs you: profitability &amp; chase-or-avoid calls per job type.</p>
+  </section>
+
+</div>
+
+<footer>
+  <div class="legend">
+    <span class="pill p-ok">confirmed</span>
+    <span class="pill p-decided">decided</span>
+    <span class="pill p-draft">draft — check it</span>
+    <span class="pill p-conflict">conflict — decide</span>
+    <span class="pill p-todo">needs you</span>
+  </div>
+  Coded from “The Brain” · one file replaces ~45 across 8 folders · Fergus / Xero / Glide stay the source of truth for their own data — this links, never copies. Bank account and personal emails are masked on this page.
+</footer>
+</div>
