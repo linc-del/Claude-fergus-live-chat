@@ -39,6 +39,10 @@ Default to flat unless they say "circular". Per-metre (qty = metres).
 |--------|------------------|------|-------------|--------------------------|
 | 2.5 TPS | Cable 2.5mm 2c+E Flat TPS | CBL2.52TPSE | $3.77/m | AFLMC0325 ($10.28/m) |
 | 1.5 TPS | Cable 1.5mm 2c+E Flat TPS | CBL152TPSE | $2.50/m | AFLMC0315 ($6.20/m) |
+| 1.0 TPS | Cable 1mm 2c+E Flat TPS (lighting) | search `1 TPS` flat | ~ | — |
+| 6mm TPS | Cable 6mm Flat TPS (HWC/oven/bigger loads) | search `6 TPS` flat | ~ | circular for sub-mains |
+
+History note: flat TPS confirmed as standard — 2.5mm is #1 by far, then 1mm, then 1.5mm.
 
 ## Batten holder
 Preferred: **Voltex** or **Vynco Home**, sometimes PDL.
@@ -56,5 +60,24 @@ that changes per circuit and per charge — but the brand/range is fixed, so mat
 | RCBO | Schneider Resi9 Slim 1P+N C-curve 30mA Type A | R9D066xx (6/10/16/20/25/32A) | ~$62.05 (Ideal copy; $75.67 in Schneider book — prefer Ideal) | amp rating |
 | RCCB | Schneider 2-pole RCCB | search `Resi9 RCCB` / `2 pole RCCB` | — | amp + sensitivity |
 
+## Also frequent — from Fergus history (confirm/adjust)
+These show up a lot in real job history, so match them fast. Brands follow the rules above.
+
+| Spoken | Likely match | Search / code | Note |
+|--------|--------------|---------------|------|
+| junction box / jbox | Junction box | `junction box` | very common |
+| flush box / flushbox | Flushbox 144MT flush box | `flushbox 144` / `flush box` | staple rough-in fitting |
+| single surface socket | Voltex VSP1 single surface socket | VSP1 | |
+| MCB / breaker | UniLine MCB 10kA 1-pole | MCB10-1-C10 (confirm amp/curve) | standard MCB seen in history — always confirm amp |
+| 25mm conduit | 25mm conduit grey | `25mm conduit` | + 25mm Bettaflex flexi (`25mm flexi`) |
+| ducting | 150mm Aluduct flexible duct | `150mm ducting` | extraction/HVAC runs |
+| extraction fan | Manrose inline extraction fan kit | MANFAN6785 | property-mgmt fan jobs |
+| bathroom heater | 3-in-1 bathroom heater (tri-colour LED, 2×275W) | VBHE-2L | |
+
+> Not gear (billing lines seen in history, handle as charges/splits, don't stock-match):
+> "Sundries", "50% of Material Sales" / "Remainder of Material Sales" (deposit/progress split),
+> "Site Fee", "Heat pump service".
+
 ## Flat charges (from the brain — not pricebook)
 Mileage $30 · Sundries $20 · CoC/ESC $20 (all ex GST). Enter as manual lines, don't search.
+Note: **Mileage Rural** is heavily used in history (per-km) — ask urban vs rural if not stated.
