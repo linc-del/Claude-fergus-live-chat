@@ -52,8 +52,9 @@ Preferred: **Voltex** or **Vynco Home**, sometimes PDL.
 | batten holder | Voltex Batten Holder B22 | VBH | $6.66 | Vynco Home (VYN…), PDL29L; weatherproof → VWBHF $31.59 |
 
 ## Protection (switchboard)
-**Schneider Resi9 RCBOs** are standard; **2-pole RCCBs** where used. Always ask the amp rating —
-that changes per circuit and per charge — but the brand/range is fixed, so match within Resi9.
+Switchboard protection is **all Schneider Resi9** — RCBOs **and** MCBs — plus **2-pole RCCBs**
+where used. Always ask the amp rating (and curve for MCBs) — that changes per circuit and per
+charge — but the brand/range is fixed, so match within Resi9.
 
 | Spoken | Brand/range | Code pattern | Sell ex GST | Always ask |
 |--------|-------------|--------------|-------------|-----------|
@@ -66,9 +67,9 @@ These show up a lot in real job history, so match them fast. Brands follow the r
 | Spoken | Likely match | Search / code | Note |
 |--------|--------------|---------------|------|
 | junction box / jbox | Junction box | `junction box` | very common |
-| flush box / flushbox | Flushbox 144MT flush box | `flushbox 144` / `flush box` | staple rough-in fitting |
+| flush box / flushbox | **144MT flush box** (Linc standard) | `flushbox 144` / `144MT` | confirmed standard |
 | single surface socket | Voltex VSP1 single surface socket | VSP1 | |
-| MCB / breaker | UniLine MCB 10kA 1-pole | MCB10-1-C10 (confirm amp/curve) | standard MCB seen in history — always confirm amp |
+| MCB / breaker | **Schneider Resi9** MCB (Linc standard) | search `Resi9 MCB` | always ask amp + curve; same family as the RCBOs |
 | 25mm conduit | 25mm conduit grey | `25mm conduit` | + 25mm Bettaflex flexi (`25mm flexi`) |
 | ducting | 150mm Aluduct flexible duct | `150mm ducting` | extraction/HVAC runs |
 | extraction fan | Manrose inline extraction fan kit | MANFAN6785 | property-mgmt fan jobs |
