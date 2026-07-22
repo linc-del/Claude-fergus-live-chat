@@ -113,10 +113,15 @@ for a pick. Only push once the job is confirmed and the lines are agreed.
 
 ## 5. Push the confirmed lines
 
-For each agreed line, one call: `manage-stock` action=`create-on-hand` with
-`jobPhaseId`, `priceBookLineItemId` (the matched item's `id`), and `itemQuantity`. Passing
-the pricebook item id lets Fergus fill description, cost and sell from the pricebook itself,
-so pricing stays consistent and you don't hand-key figures.
+The job must be **active** — Fergus rejects stock on a draft/unscheduled job (you get a 500).
+
+For each agreed line, call `manage-stock` action=`create-on-hand` with `jobPhaseId` and the
+matched item's **details**: `itemDescription` (product code + name), `itemCost`, `itemPrice`
+(the ex-GST sell, straight from the pricebook `retailPrice`), and `itemQuantity`.
+
+Do **not** pass the pricebook search result's `id` as `priceBookLineItemId` — the stock
+endpoint uses a different identifier and rejects it (404). The matched detail fields are the
+reliable path (verified live 22 Jul 2026) and produce the same line at the same price.
 
 Then confirm back plainly what landed on the job ("Added to Job-500: 20m 2.5 TPS, 1×
 weatherproof GPO, 2× Slick downlights"). If a line was skipped (no match), say so — a silent
