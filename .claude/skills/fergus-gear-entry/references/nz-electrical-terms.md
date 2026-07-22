@@ -8,11 +8,16 @@ When a term is vague, search the general term, then use the confidence rules in 
 offer a pick-list rather than guessing amperage/model/colour.
 
 ## Accessories (GPOs, switches, plates)
+> **Critical term note:** the Ideal pricebook calls every socket outlet a **"socket"**, never a
+> "powerpoint". Searching `powerpoint` / `double powerpoint` / `weatherproof powerpoint` returns
+> **zero hits**. Always translate a spoken "powerpoint / power point / GPO" to **`socket`** before
+> searching. (Verified against the live pricebook.)
+
 | Said | Search term(s) | Notes |
 |------|----------------|-------|
-| GPO / power point / socket / plug | `single socket` / `single powerpoint` | GPO = General Purpose Outlet |
-| double GPO / double power point | `double socket` / `double powerpoint` | the everyday double socket |
-| weatherproof GPO / WP powerpoint / outdoor point | `weatherproof powerpoint` | ask 10A vs 15A, IP53/IP54, white/black |
+| GPO / power point / socket / plug | `single socket` | never "powerpoint" — 0 hits |
+| double GPO / double power point | `double socket` | the everyday double socket; "double powerpoint" = 0 hits |
+| weatherproof GPO / WP powerpoint / outdoor point | `weatherproof socket` | NOT "weatherproof powerpoint" (0 hits). Then single/double, 10A/15A, colour |
 | USB point / USB socket | `socket USB` | |
 | light switch / one-gang / two-gang | `switch 1 gang` / `switch 2 gang` | "gang" = number of switches on the plate |
 | dimmer | `dimmer` | LED-compatible matters — confirm |

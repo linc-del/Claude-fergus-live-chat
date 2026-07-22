@@ -60,8 +60,15 @@ Materials attach to a **job phase**, not the job directly, so you need a `jobPha
 
 ## 3. Match each item to a pricebook item
 
-Use `manage-pricebooks` action=`search` (min 3 characters of `searchText`; it searches
-name, product code and supplier SKU).
+**First check Linc's standard fits** (`references/linc-standard-fits.md`). Linc reaches for the
+same handful of products every day — his usual double GPO, his standard downlight, the cable he
+runs. If the dictated item maps to a standard fit, that IS the match: treat it as high confidence
+and show it for a glance, don't run a pick-list. The whole point of voice entry is speed, and a
+sparky saying "double GPO" almost always means *their* double GPO. Only fall through to a general
+search when the item isn't a known standard, or they name a variant that differs from it.
+
+For everything else, use `manage-pricebooks` action=`search` (min 3 characters of `searchText`;
+it searches name, product code and supplier SKU).
 
 - Default `supplierNames: ["Ideal"]` — Ideal is the main wholesaler. Note the supplier is
   literally `"Ideal"`, not "Ideal Electrical". For lighting/downlights, also try `"Voltex"`.
@@ -76,7 +83,11 @@ Assign each line a confidence:
 
 - **High** — one clearly-right match (exact code, or an unambiguous single result). Ready to push.
 - **Ambiguous** — several plausible matches that differ in a way that matters (10A vs 15A,
-  which downlight model, IP rating, colour). Don't guess — offer a short pick-list.
+  which downlight model, IP rating, colour). **Lead with a recommended default** — the most
+  common everyday item (or Linc's standard fit if there is one) — as a one-tap "is it this?",
+  then offer 3–4 real alternatives underneath. Don't bury the person in a 20-row catalogue;
+  a short, ranked pick beats an exhaustive dump. Only the spec that genuinely changes the
+  charge needs asking (e.g. an RCBO's amp rating — never guess that).
 - **No good match** — nothing sensible came back. Flag it, don't invent a line. Suggest the
   person add it manually or give a product code.
 
