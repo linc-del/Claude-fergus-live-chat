@@ -97,8 +97,14 @@ Because it's now on the internet, the team-password login is what keeps it priva
 - **Confirm-before-acting** — Claude is told to confirm before creating or changing Fergus data. Review actions before approving.
 - **Costs** — every message is an Anthropic API call plus Fergus tool round-trips. Keep an eye on usage.
 
+## Gear entry (dictate materials onto a job)
+
+The app has Linc's **gear-entry** workflow built in (ported from the `fergus-gear-entry` skill). Say what you fitted — "chuck 20m of 2.5 TPS and 3 double GPOs on the Henderson job" — and it finds the job + phase, matches each item to the real Fergus price book (leaning on Linc's standard fits and NZ shorthand), shows a one-glance table to confirm, then pushes the lines onto the job. Prices come straight from the price book (ex-GST, no double-GST), and it won't push to the wrong job or invent a line.
+
+That knowledge lives in **`prompts/`** as plain markdown — `00-assistant.md` (persona), `10-gear-entry.md` (the workflow), `20-standard-fits.md` (Linc's usual brands/codes), `30-nz-terms.md` (shorthand → search terms). Edit those to tune behaviour; no code change needed. They're assembled into the system prompt at startup and prompt-cached.
+
 ## Customising
 
-- Assistant behaviour: edit `SYSTEM_PROMPT` in `src/server.ts`.
+- Assistant behaviour / gear-entry rules: edit the files in `prompts/`.
 - Model: set `MODEL` in `.env`.
 - Restrict which Fergus tools are allowed: give the `mcp_toolset` entry a `default_config`/`configs` allowlist (see the Anthropic MCP connector docs).

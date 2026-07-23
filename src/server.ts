@@ -1,6 +1,7 @@
 import express from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import path from "node:path";
+import fs from "node:fs";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import {
@@ -18,16 +19,26 @@ const PUBLIC = path.join(__dirname, "..", "public");
 
 const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
-const SYSTEM_PROMPT = `You are the internal assistant for Linc Electrical (Palmerston North, NZ), talking to Lincoln and his team over live chat.
-
-You are connected to the company's Fergus job-management system through MCP tools. Use those tools to look up and act on real business data — jobs, customers, sites, quotes, invoices, contacts, time entries, price books, calendar events, stock, and notes. Never invent Fergus data; if you don't know something, call a tool to find out.
-
-How to work:
-- Answer from live Fergus data, not from memory. When a question is about a specific job, customer, quote, or invoice, look it up.
-- Be concise and direct — this is a working tool, not a chatbot. Lead with the answer, then supporting detail.
-- New Zealand context: prices in NZD, GST is 15%, dates day/month/year.
-- Before taking an action that changes data or is hard to reverse (creating/editing/deleting a job, quote, invoice, customer, or sending anything outward), briefly confirm the details with the user first.
-- If a tool call fails or returns nothing, say so plainly rather than guessing.`;
+// The system prompt is assembled from the markdown files in prompts/ (base
+// persona + the gear-entry workflow + Linc's standard fits + NZ shorthand).
+// Edit those files to change behaviour — no code change needed.
+const PROMPTS_DIR = path.join(__dirname, "..", "prompts");
+function loadSystemPrompt(): string {
+  try {
+    const files = fs
+      .readdirSync(PROMPTS_DIR)
+      .filter((f) => f.endsWith(".md"))
+      .sort();
+    const parts = files
+      .map((f) => fs.readFileSync(path.join(PROMPTS_DIR, f), "utf8").trim())
+      .filter(Boolean);
+    if (parts.length) return parts.join("\n\n---\n\n");
+  } catch (err) {
+    console.error("Could not load prompts/:", err);
+  }
+  return "You are the internal assistant for Linc Electrical. Use the connected Fergus tools to look up and act on real job data; confirm before changing anything.";
+}
+const SYSTEM_PROMPT = loadSystemPrompt();
 
 interface Session {
   messages: any[];
@@ -162,7 +173,7 @@ app.post("/api/chat", async (req, res) => {
         model: MODEL,
         max_tokens: 16000,
         betas: ["mcp-client-2025-11-20"],
-        system: SYSTEM_PROMPT,
+        system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
         mcp_servers: [mcpServer],
         tools: [{ type: "mcp_toolset", mcp_server_name: "fergus" }],
         thinking: { type: "adaptive", display: "summarized" },
