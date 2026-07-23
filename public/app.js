@@ -405,15 +405,19 @@ function speak(text, onEnd) {
   synth.speak(utter);
 }
 
-// Hands-free dictation buffer. We accumulate everything you say and only send
-// after you've actually stopped talking (a real pause), so you can speak a full
-// sentence — with little gaps — without it firing off each fragment.
+// Hands-free dictation buffer. We only send after you've actually stopped
+// talking (a real pause), so you can speak a full sentence with little gaps.
+// `committed` holds finalized speech carried across the recogniser's automatic
+// restarts; each active session's transcript is rebuilt fresh (never appended)
+// to avoid the word-stacking bug.
 const SILENCE_MS = 1800; // how long a pause counts as "done talking"
-let pending = "";
+let committed = "";
+let liveText = ""; // committed + the current session's finalized words
 let flushTimer = null;
 
 function clearPending() {
-  pending = "";
+  committed = "";
+  liveText = "";
   clearTimeout(flushTimer);
   flushTimer = null;
 }
@@ -421,8 +425,8 @@ function clearPending() {
 function scheduleFlush() {
   clearTimeout(flushTimer);
   flushTimer = setTimeout(() => {
-    const text = pending.trim();
-    pending = "";
+    const text = liveText.trim();
+    clearPending();
     input.value = "";
     if (!text || isStopOnly(text)) return;
     stopListening();
@@ -443,36 +447,39 @@ function startListening() {
   recognition.continuous = handsFree; // keep the mic open in hands-free so you can talk over her
   recognition.maxAlternatives = 1;
 
-  let finalText = ""; // used only for push-to-talk (non-hands-free)
+  let sessionFinal = ""; // finalized words for THIS recogniser session (rebuilt each event)
   let sent = false;
   setListening(true);
 
   recognition.onresult = (e) => {
+    // Rebuild this session's transcript from scratch every event (index 0),
+    // so a growing phrase replaces the old one instead of stacking on it.
     let interim = "";
-    let finalChunk = "";
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      const chunk = e.results[i][0].transcript;
-      if (e.results[i].isFinal) finalChunk += chunk;
-      else interim += chunk;
+    let fin = "";
+    for (let i = 0; i < e.results.length; i++) {
+      const t = e.results[i][0].transcript;
+      if (e.results[i].isFinal) fin += t + " ";
+      else interim += t;
     }
-    const buffer = handsFree ? pending : finalText;
-    const heard = (buffer + " " + finalChunk + " " + interim).trim();
-    if (!heard) return;
+    sessionFinal = fin.trim();
+    liveText = (committed + " " + sessionFinal).trim();
+    const combined = (liveText + " " + interim).trim();
+    if (!combined) return;
 
     // While she's speaking, be picky about what counts as "talking over her",
     // so the echo of her own voice doesn't make her cut herself off.
     if (synth && synth.speaking) {
-      const isStop = STOP_WORDS.test(heard);
+      const isStop = STOP_WORDS.test(combined);
       const withinGrace = Date.now() - speakStartedAt < BARGE_GRACE_MS;
       const strong =
-        heard.length >= BARGE_MIN_CHARS && heard.split(/\s+/).length >= BARGE_MIN_WORDS;
+        combined.length >= BARGE_MIN_CHARS && combined.split(/\s+/).length >= BARGE_MIN_WORDS;
 
       if (isStop) {
         synth.cancel(); // "stop" always works
         clearPending();
         input.value = "";
         autoGrow();
-        return; // just stop; wait for the real command next
+        return;
       }
       if (withinGrace || !strong) {
         return; // short/early speech is almost certainly echo — ignore it
@@ -480,17 +487,9 @@ function startListening() {
       synth.cancel(); // a genuine phrase over the top → cut her off and take it
     }
 
-    if (handsFree) {
-      if (finalChunk) pending = (pending + " " + finalChunk).trim();
-      input.value = (pending + " " + interim).trim();
-      autoGrow();
-      // Don't send yet — wait until they stop talking (SILENCE_MS).
-      scheduleFlush();
-    } else {
-      finalText += finalChunk;
-      input.value = (finalText + " " + interim).trim();
-      autoGrow();
-    }
+    input.value = combined;
+    autoGrow();
+    if (handsFree) scheduleFlush(); // send once they actually pause
   };
 
   recognition.onerror = (e) => {
@@ -513,9 +512,15 @@ function startListening() {
 
   recognition.onend = () => {
     setListening(false);
+    // Commit this session's finalized words so they survive the restart.
+    committed = (committed + " " + sessionFinal).trim();
+    sessionFinal = "";
+
     if (!handsFree) {
       // Push-to-talk: send the one utterance when the mic stops.
-      const text = finalText.trim();
+      const text = committed.trim();
+      committed = "";
+      liveText = "";
       if (text && !sent) {
         sent = true;
         sendMessage(text, true);
