@@ -166,46 +166,75 @@ app.post("/api/chat", async (req, res) => {
     }
   });
 
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  let guard = 0;
+  let retries = 0;
+  const MAX_RETRIES = 2;
+
   try {
-    let guard = 0;
-    while (!aborted && guard++ < 10) {
-      const stream = client.beta.messages.stream({
-        model: MODEL,
-        max_tokens: 16000,
-        betas: ["mcp-client-2025-11-20"],
-        system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-        mcp_servers: [mcpServer],
-        tools: [{ type: "mcp_toolset", mcp_server_name: "fergus" }],
-        thinking: { type: "adaptive", display: "summarized" },
-        messages: session.messages,
-      } as any);
-      currentStream = stream;
+    while (!aborted && guard++ < 12) {
+      let streamedAny = false;
+      try {
+        const stream = client.beta.messages.stream({
+          model: MODEL,
+          max_tokens: 16000,
+          betas: ["mcp-client-2025-11-20"],
+          system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+          mcp_servers: [mcpServer],
+          tools: [{ type: "mcp_toolset", mcp_server_name: "fergus" }],
+          thinking: { type: "adaptive", display: "summarized" },
+          messages: session.messages,
+        } as any);
+        currentStream = stream;
 
-      for await (const event of stream as any) {
-        if (aborted) break;
-        if (event.type === "content_block_start" && event.content_block?.type === "mcp_tool_use") {
-          send("tool", { name: event.content_block.name });
-        } else if (event.type === "content_block_delta") {
-          const delta = event.delta;
-          if (delta?.type === "text_delta") send("text", { text: delta.text });
-          else if (delta?.type === "thinking_delta") send("thinking", { text: delta.thinking });
+        for await (const event of stream as any) {
+          if (aborted) break;
+          if (event.type === "content_block_start" && event.content_block?.type === "mcp_tool_use") {
+            send("tool", { name: event.content_block.name });
+          } else if (event.type === "content_block_delta") {
+            const delta = event.delta;
+            if (delta?.type === "text_delta") {
+              streamedAny = true;
+              send("text", { text: delta.text });
+            } else if (delta?.type === "thinking_delta") {
+              streamedAny = true;
+              send("thinking", { text: delta.thinking });
+            }
+          }
         }
-      }
-      if (aborted) break;
+        if (aborted) break;
 
-      const final = await stream.finalMessage();
-      session.messages.push({ role: "assistant", content: final.content });
+        const final = await stream.finalMessage();
+        session.messages.push({ role: "assistant", content: final.content });
 
-      if (final.stop_reason === "pause_turn") continue;
-      if (final.stop_reason === "refusal") {
-        send("error", { message: "The request was declined for safety reasons." });
+        if (final.stop_reason === "pause_turn") continue;
+        if (final.stop_reason === "refusal") {
+          send("error", { message: "The request was declined for safety reasons." });
+        }
+        break; // success
+      } catch (err: any) {
+        const msg = String(err?.message ?? err ?? "");
+        const isMcpConn = /MCP server/i.test(msg);
+        // Fergus's MCP server occasionally blips; retry a couple of times before
+        // giving up — but only if we hadn't started streaming a reply yet.
+        if (isMcpConn && !streamedAny && !aborted && retries < MAX_RETRIES) {
+          retries++;
+          send("thinking", { text: `Fergus didn't respond — retrying (${retries})…\n` });
+          await sleep(700 * retries);
+          continue;
+        }
+        console.error("Chat error:", err);
+        if (!aborted) {
+          send("error", {
+            message: isMcpConn
+              ? "Couldn't reach Fergus just now — it can be briefly unavailable. Give it a few seconds and try again. If it keeps happening, tap “Connect Fergus” up top to refresh the link."
+              : "Something went wrong handling that — try again in a moment.",
+          });
+        }
+        break;
       }
-      break;
     }
     if (!aborted) send("done", {});
-  } catch (err: any) {
-    console.error("Chat error:", err);
-    if (!aborted) send("error", { message: err?.message ?? "Something went wrong." });
   } finally {
     res.end();
   }
