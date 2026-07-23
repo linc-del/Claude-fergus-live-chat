@@ -327,13 +327,21 @@ let recognition = null;
 
 const SPEAK_RATE = 1.5; // 1.5x speed
 
-// Pick the smoothest available English voice the browser offers.
+// Pick the smoothest available ENGLISH voice. Never fall back to a
+// non-English voice — reading English text with, say, a Chinese engine
+// sounds wrong. If the device has no English voice, we leave chosenVoice
+// null and just set the utterance language to English.
 let chosenVoice = null;
 function pickVoice() {
   if (!synth) return;
   const voices = synth.getVoices();
   if (!voices.length) return;
-  const byName = (frag) => voices.find((v) => v.name.toLowerCase().includes(frag));
+  const en = voices.filter((v) => /^en([-_]|$)/i.test(v.lang || ""));
+  if (!en.length) {
+    chosenVoice = null;
+    return;
+  }
+  const byName = (frag) => en.find((v) => (v.name || "").toLowerCase().includes(frag));
   chosenVoice =
     byName("google uk english female") ||
     byName("libby") ||
@@ -343,11 +351,9 @@ function pickVoice() {
     byName("natural") ||
     byName("samantha") ||
     byName("karen") ||
-    byName("google us english") ||
-    voices.find((v) => /^en[-_]?(nz|au|gb)/i.test(v.lang)) ||
-    voices.find((v) => v.lang && v.lang.toLowerCase().startsWith("en")) ||
-    voices[0] ||
-    null;
+    en.find((v) => /^en[-_]?(nz|au|gb)/i.test(v.lang)) ||
+    en.find((v) => /^en[-_]?us/i.test(v.lang)) ||
+    en[0];
 }
 if (synth) {
   pickVoice();
@@ -370,12 +376,12 @@ function speak(text, onEnd) {
     if (onEnd) onEnd();
     return;
   }
+  if (!chosenVoice) pickVoice(); // voices may have loaded after startup
   const utter = new SpeechSynthesisUtterance(clean);
-  if (chosenVoice) {
+  utter.lang = "en-NZ"; // always English, even if no specific voice is chosen
+  if (chosenVoice && /^en/i.test(chosenVoice.lang || "")) {
     utter.voice = chosenVoice;
     utter.lang = chosenVoice.lang;
-  } else {
-    utter.lang = "en-NZ";
   }
   utter.rate = SPEAK_RATE;
   utter.onend = () => onEnd && onEnd();
