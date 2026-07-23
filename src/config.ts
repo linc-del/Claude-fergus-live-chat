@@ -3,7 +3,9 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-export const DATA_DIR = path.join(process.cwd(), "data");
+// Where tokens / oauth client / session secret are stored. On hosting with a
+// persistent disk, point DATA_DIR at the mounted volume so it survives deploys.
+export const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
 function required(name: string): string {

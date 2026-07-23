@@ -4,18 +4,26 @@ services:
   - type: web
     name: fergus-chat
     runtime: node
-    plan: free # bump to "starter" for always-on (no cold starts) + a persistent disk
+    plan: starter # always-on (no cold starts); required for the persistent disk below
     buildCommand: npm install --include=dev && npm run build
     startCommand: npm start
     autoDeploy: true
+    # Persistent disk: keeps the Fergus login, OAuth client, and session secret
+    # across deploys/restarts, so you connect Fergus once and it stays connected.
+    disk:
+      name: fergus-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: NODE_VERSION
         value: "22"
+      - key: DATA_DIR
+        value: /var/data # store persistent data on the mounted disk
       - key: ANTHROPIC_API_KEY
         sync: false # you paste this in the dashboard
       - key: APP_PASSWORD
         sync: false # you paste this in the dashboard
       - key: PUBLIC_URL
-        sync: false # set to your Render URL after the first deploy, e.g. https://fergus-chat.onrender.com
+        sync: false # your Render URL, e.g. https://fergus-chat.onrender.com
       - key: SESSION_SECRET
-        generateValue: true # Render generates + stores this; keeps team logins alive across restarts
+        generateValue: true # Render generates + stores this; keeps team logins alive

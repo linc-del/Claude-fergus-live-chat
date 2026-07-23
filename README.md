@@ -93,7 +93,7 @@ Because it's now on the internet, the team-password login is what keeps it priva
 ## Notes & limits
 
 - **In-memory chat history** — cleared on restart and after 6 h idle. Fine for a single instance; add Redis/DB for durability or multiple instances.
-- **Fergus token storage** — kept in `data/fergus-tokens.json`. On hosts with ephemeral disks you may need to reconnect Fergus after a redeploy (or mount a persistent volume).
+- **Fergus token storage** — kept in `DATA_DIR` (default `./data`, git-ignored). On Render the blueprint sets `DATA_DIR=/var/data` on a persistent disk, so the Fergus connection survives redeploys. Without a persistent disk (e.g. Render free tier), the token is wiped on each redeploy and you'd reconnect Fergus again.
 - **Confirm-before-acting** — Claude is told to confirm before creating or changing Fergus data. Review actions before approving.
 - **Costs** — every message is an Anthropic API call plus Fergus tool round-trips. Keep an eye on usage.
 
