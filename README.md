@@ -101,7 +101,13 @@ Because it's now on the internet, the team-password login is what keeps it priva
 
 The app has Linc's **gear-entry** workflow built in (ported from the `fergus-gear-entry` skill). Say what you fitted — "chuck 20m of 2.5 TPS and 3 double GPOs on the Henderson job" — and it finds the job + phase, matches each item to the real Fergus price book (leaning on Linc's standard fits and NZ shorthand), shows a one-glance table to confirm, then pushes the lines onto the job. Prices come straight from the price book (ex-GST, no double-GST), and it won't push to the wrong job or invent a line.
 
-That knowledge lives in **`prompts/`** as plain markdown — `00-assistant.md` (persona), `10-gear-entry.md` (the workflow), `20-standard-fits.md` (Linc's usual brands/codes), `30-nz-terms.md` (shorthand → search terms). Edit those to tune behaviour; no code change needed. They're assembled into the system prompt at startup and prompt-cached.
+That knowledge lives in **`prompts/`** as plain markdown — `00-assistant.md` (persona), `10-gear-entry.md` (the workflow), `20-standard-fits.md` (Linc's usual brands/codes), `30-nz-terms.md` (shorthand → search terms), `40-supply-email.md` (supply-order emails, below). Edit those to tune behaviour; no code change needed. They're assembled into the system prompt at startup (any `NN-name.md` file is picked up automatically, in filename order) and prompt-cached.
+
+## Supply orders (get the gear ordered)
+
+The flip side of gear-entry: instead of recording what you fitted, it puts together what you need to **order**. Say "sort the order for the Henderson job" or "email Ideal for 2 double GPOs and 30m of 2.5" — it gathers the items (from a Fergus job/quote or straight from your dictation), matches each to the real pricebook **product code**, groups them by supplier (Ideal, Voltex…), shows a one-glance table to confirm, then hands back a **ready-to-send order email** — subject line and a picked-clean list per supplier.
+
+The app talks to Fergus only and has no mailbox, so it can't send the email itself — it writes it out for you to copy in (or reads it back hands-free). It won't invent a product code: anything it can't match is flagged in plain English so the supplier can quote a code back, rather than a wrong part turning up. The rules live in **`prompts/40-supply-email.md`**.
 
 ## Customising
 
