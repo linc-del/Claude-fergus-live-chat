@@ -118,15 +118,19 @@ function createAssistantTurn() {
         bubble.textContent = "(no response)";
       }
     },
+    getText() {
+      return text;
+    },
   };
 }
 
 /* ---------- streaming request ---------- */
 
-async function sendMessage(text) {
+async function sendMessage(text, viaVoice = false) {
   if (busy || !text.trim()) return;
   busy = true;
   sendBtn.disabled = true;
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
   input.value = "";
   autoGrow();
 
@@ -191,7 +195,18 @@ async function sendMessage(text) {
   } finally {
     busy = false;
     sendBtn.disabled = false;
-    input.focus();
+    if (!viaVoice) input.focus();
+  }
+
+  // Speak the reply back when the user talked to it (or hands-free is on),
+  // then resume listening in hands-free mode.
+  const replyText = turn.getText();
+  if ((viaVoice || handsFree) && replyText.trim()) {
+    speak(replyText, () => {
+      if (handsFree) startListening();
+    });
+  } else if (handsFree) {
+    startListening();
   }
 }
 
@@ -275,6 +290,119 @@ async function refreshFergusStatus() {
 
 refreshFergusStatus();
 setInterval(refreshFergusStatus, 60000);
+
+/* ---------- Voice: talk to it, and it talks back ---------- */
+
+const micBtn = document.getElementById("mic");
+const handsFreeBtn = document.getElementById("handsFree");
+const hintEl = document.getElementById("hint");
+
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+const synth = window.speechSynthesis;
+const voiceSupported = !!SpeechRec;
+
+let handsFree = false;
+let recognizing = false;
+let recognition = null;
+
+function speak(text, onEnd) {
+  if (!synth) {
+    if (onEnd) onEnd();
+    return;
+  }
+  synth.cancel();
+  // Strip the little markdown bits so it reads naturally.
+  const clean = text
+    .replace(/\*\*/g, "")
+    .replace(/`/g, "")
+    .replace(/^[#>\-*]\s?/gm, "")
+    .trim();
+  if (!clean) {
+    if (onEnd) onEnd();
+    return;
+  }
+  const utter = new SpeechSynthesisUtterance(clean);
+  utter.lang = "en-NZ";
+  utter.rate = 1.05;
+  utter.onend = () => onEnd && onEnd();
+  utter.onerror = () => onEnd && onEnd();
+  synth.speak(utter);
+}
+
+function setListening(on) {
+  recognizing = on;
+  micBtn.classList.toggle("listening", on);
+}
+
+function startListening() {
+  if (!voiceSupported || recognizing || busy) return;
+  recognition = new SpeechRec();
+  recognition.lang = "en-NZ";
+  recognition.interimResults = true;
+  recognition.continuous = false;
+  recognition.maxAlternatives = 1;
+
+  let finalText = "";
+  setListening(true);
+
+  recognition.onresult = (e) => {
+    let interim = "";
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      const chunk = e.results[i][0].transcript;
+      if (e.results[i].isFinal) finalText += chunk;
+      else interim += chunk;
+    }
+    input.value = (finalText + interim).trim();
+    autoGrow();
+  };
+  recognition.onerror = () => {};
+  recognition.onend = () => {
+    setListening(false);
+    const text = input.value.trim();
+    if (text) sendMessage(text, true);
+  };
+
+  try {
+    recognition.start();
+  } catch {
+    setListening(false);
+  }
+}
+
+function stopListening() {
+  if (recognition && recognizing) {
+    try {
+      recognition.stop();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+if (voiceSupported) {
+  micBtn.hidden = false;
+  handsFreeBtn.hidden = false;
+  if (hintEl) hintEl.textContent = "Tap the mic to talk · turn on Hands-free for the van";
+
+  micBtn.addEventListener("click", () => {
+    if (recognizing) stopListening();
+    else startListening();
+  });
+
+  handsFreeBtn.addEventListener("click", () => {
+    handsFree = !handsFree;
+    handsFreeBtn.classList.toggle("active", handsFree);
+    handsFreeBtn.textContent = handsFree ? "🎙️ Hands-free on" : "🎙️ Hands-free";
+    if (handsFree) {
+      if (!recognizing && !busy) startListening();
+    } else {
+      if (synth) synth.cancel();
+      stopListening();
+    }
+  });
+} else if (hintEl) {
+  hintEl.textContent = "Voice needs Chrome (Android/desktop) — typing still works everywhere";
+}
 
 newChatBtn.addEventListener("click", async () => {
   await fetch("/api/reset", {

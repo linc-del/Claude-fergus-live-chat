@@ -48,6 +48,14 @@ npm run dev          # development, auto-reloads
 
 Open **http://localhost:3000**, enter the team password, then click **Connect Fergus** (top right) and sign into Fergus once. After that, chat away.
 
+### Talking to it (voice)
+
+- **🎤 mic** (next to the message box) — tap, speak, it transcribes and sends. No typing.
+- **Spoken replies** — when you talk to it, it reads the answer back.
+- **🎙️ Hands-free** (top right) — toggle on for the van: it speaks each reply, then listens again automatically so you can go back and forth without touching the phone.
+
+Voice uses the browser's built-in speech, so it's free and needs no extra keys — but it works best in **Chrome on Android/desktop** (iOS Safari support is patchy) and needs the **https** address (the mic is blocked on plain http, which is why hosting it properly matters). Typing works everywhere regardless. For sharper transcription of electrical jargon and part numbers, a paid speech service can be added later.
+
 ## Use it from your phone (hosting it online)
 
 The chat page opens in any phone browser, but the "engine" needs to run somewhere always-on. To use it from your Android anywhere:

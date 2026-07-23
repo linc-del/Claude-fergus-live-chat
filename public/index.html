@@ -23,6 +23,7 @@
         <div class="top-actions">
           <span id="fergusPill" class="pill pill-checking">Fergus: checking…</span>
           <button id="connectFergus" class="ghost-btn accent" hidden>Connect Fergus</button>
+          <button id="handsFree" class="ghost-btn" title="Hands-free voice mode" hidden>🎙️ Hands-free</button>
           <button id="newChat" class="ghost-btn" title="Start a new conversation">New chat</button>
           <button id="logout" class="ghost-btn" title="Sign out">Log out</button>
         </div>
@@ -48,17 +49,23 @@
 
       <footer class="composer">
         <form id="chatForm">
+          <button id="mic" type="button" class="icon-btn mic-btn" aria-label="Tap to talk" title="Tap to talk" hidden>
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3z" fill="currentColor"/>
+              <path d="M19 11a7 7 0 0 1-14 0M12 18v3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>
+            </svg>
+          </button>
           <textarea
             id="input"
             rows="1"
-            placeholder="Ask about jobs, quotes, invoices, customers…"
+            placeholder="Ask, or tap the mic to talk…"
             autocomplete="off"
           ></textarea>
-          <button id="send" type="submit" aria-label="Send">
+          <button id="send" type="submit" class="icon-btn send-btn" aria-label="Send">
             <svg viewBox="0 0 24 24" width="20" height="20"><path d="M4 12l16-8-8 16-2-6-6-2z" fill="currentColor"/></svg>
           </button>
         </form>
-        <div class="hint">
+        <div class="hint" id="hint">
           Connected to Fergus · Claude can look up and act on live job data
         </div>
       </footer>
