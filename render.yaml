@@ -1,0 +1,21 @@
+# Render.com blueprint. Deploy: New + → Blueprint → pick this repo.
+# You'll be prompted for the three "sync: false" secrets in the dashboard.
+services:
+  - type: web
+    name: fergus-chat
+    runtime: node
+    plan: free # bump to "starter" for always-on (no cold starts) + a persistent disk
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: ANTHROPIC_API_KEY
+        sync: false # you paste this in the dashboard
+      - key: APP_PASSWORD
+        sync: false # you paste this in the dashboard
+      - key: PUBLIC_URL
+        sync: false # set to your Render URL after the first deploy, e.g. https://fergus-chat.onrender.com
+      - key: SESSION_SECRET
+        generateValue: true # Render generates + stores this; keeps team logins alive across restarts
