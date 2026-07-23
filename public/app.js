@@ -310,7 +310,7 @@ const ua = navigator.userAgent || "";
 const inAppBrowser = /FBAN|FBAV|FB_IAB|Instagram|Messenger|Line\/|Twitter|WebView|; wv\)/i.test(ua);
 const voiceSupported = !!SpeechRec && !inAppBrowser;
 
-const DEFAULT_HINT = "Tap the mic to talk · turn on Hands-free for the van";
+const DEFAULT_HINT = 'Tap the mic to talk · Hands-free for the van · say “stop” to cut her off';
 let hintTimer = null;
 function voiceNote(msg) {
   if (!hintEl) return;
@@ -326,6 +326,20 @@ let recognizing = false;
 let recognition = null;
 
 const SPEAK_RATE = 1.5; // 1.5x speed
+
+// Barge-in tuning. While she's talking, only a stop word or a clearly-real
+// phrase interrupts her — short fragments (usually the echo of her own voice
+// through the speaker) are ignored. Raise these to make her LESS likely to cut
+// herself off (i.e. lower the effective mic sensitivity while she speaks).
+const STOP_WORDS = /\b(stop|wait|hold on|hang on|quiet|shush|enough|pause|cancel|thanks claude)\b/i;
+const BARGE_MIN_CHARS = 15;
+const BARGE_MIN_WORDS = 3;
+const BARGE_GRACE_MS = 700; // ignore the first moment after she starts (leading echo)
+let speakStartedAt = 0;
+
+function isStopOnly(t) {
+  return STOP_WORDS.test(t) && t.replace(STOP_WORDS, "").replace(/[^a-z0-9]/gi, "").length < 3;
+}
 
 // Pick the smoothest available ENGLISH voice. Never fall back to a
 // non-English voice — reading English text with, say, a Chinese engine
@@ -386,6 +400,7 @@ function speak(text, onEnd) {
   utter.rate = SPEAK_RATE;
   utter.onend = () => onEnd && onEnd();
   utter.onerror = () => onEnd && onEnd();
+  speakStartedAt = Date.now();
   synth.speak(utter);
 }
 
@@ -414,14 +429,42 @@ function startListening() {
       else interim += chunk;
     }
     const heard = (finalText + interim).trim();
-    // Barge-in: the moment you start talking, cut her off.
-    if (heard && synth && synth.speaking) synth.cancel();
+    if (!heard) return;
+
+    // While she's speaking, be picky about what counts as "talking over her",
+    // so the echo of her own voice doesn't make her cut herself off.
+    if (synth && synth.speaking) {
+      const isStop = STOP_WORDS.test(heard);
+      const withinGrace = Date.now() - speakStartedAt < BARGE_GRACE_MS;
+      const strong =
+        heard.length >= BARGE_MIN_CHARS && heard.split(/\s+/).length >= BARGE_MIN_WORDS;
+
+      if (isStop) {
+        synth.cancel(); // "stop" always works
+        finalText = "";
+        input.value = "";
+        autoGrow();
+        return; // just stop; wait for the real command next
+      }
+      if (withinGrace || !strong) {
+        finalText = ""; // treat short/early speech as echo — ignore it
+        return;
+      }
+      synth.cancel(); // a genuine phrase over the top → cut her off and take it
+    }
+
     input.value = heard;
     autoGrow();
+
     // In hands-free, send as soon as a complete phrase lands.
     if (handsFree && finalText.trim() && !sent) {
-      sent = true;
       const text = finalText.trim();
+      if (isStopOnly(text)) {
+        finalText = ""; // a bare "stop" isn't a query — don't send it
+        input.value = "";
+        return;
+      }
+      sent = true;
       finalText = "";
       stopListening();
       sendMessage(text, true);
