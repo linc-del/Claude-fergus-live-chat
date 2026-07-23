@@ -198,13 +198,17 @@ async function sendMessage(text, viaVoice = false) {
     if (!viaVoice) input.focus();
   }
 
-  // Speak the reply back when the user talked to it (or hands-free is on),
-  // then resume listening in hands-free mode.
+  // Speak the reply back when the user talked to it (or hands-free is on).
   const replyText = turn.getText();
   if ((viaVoice || handsFree) && replyText.trim()) {
-    speak(replyText, () => {
-      if (handsFree) startListening();
-    });
+    if (handsFree) {
+      // Listen WHILE speaking so the user can talk over her (barge-in),
+      // then keep listening for the next turn.
+      startListening();
+      speak(replyText);
+    } else {
+      speak(replyText);
+    }
   } else if (handsFree) {
     startListening();
   }
@@ -321,6 +325,35 @@ let handsFree = false;
 let recognizing = false;
 let recognition = null;
 
+const SPEAK_RATE = 1.5; // 1.5x speed
+
+// Pick the smoothest available English voice the browser offers.
+let chosenVoice = null;
+function pickVoice() {
+  if (!synth) return;
+  const voices = synth.getVoices();
+  if (!voices.length) return;
+  const byName = (frag) => voices.find((v) => v.name.toLowerCase().includes(frag));
+  chosenVoice =
+    byName("google uk english female") ||
+    byName("libby") ||
+    byName("sonia") ||
+    byName("aria") ||
+    byName("jenny") ||
+    byName("natural") ||
+    byName("samantha") ||
+    byName("karen") ||
+    byName("google us english") ||
+    voices.find((v) => /^en[-_]?(nz|au|gb)/i.test(v.lang)) ||
+    voices.find((v) => v.lang && v.lang.toLowerCase().startsWith("en")) ||
+    voices[0] ||
+    null;
+}
+if (synth) {
+  pickVoice();
+  synth.addEventListener?.("voiceschanged", pickVoice);
+}
+
 function speak(text, onEnd) {
   if (!synth) {
     if (onEnd) onEnd();
@@ -338,8 +371,13 @@ function speak(text, onEnd) {
     return;
   }
   const utter = new SpeechSynthesisUtterance(clean);
-  utter.lang = "en-NZ";
-  utter.rate = 1.05;
+  if (chosenVoice) {
+    utter.voice = chosenVoice;
+    utter.lang = chosenVoice.lang;
+  } else {
+    utter.lang = "en-NZ";
+  }
+  utter.rate = SPEAK_RATE;
   utter.onend = () => onEnd && onEnd();
   utter.onerror = () => onEnd && onEnd();
   synth.speak(utter);
@@ -355,10 +393,11 @@ function startListening() {
   recognition = new SpeechRec();
   recognition.lang = "en-NZ";
   recognition.interimResults = true;
-  recognition.continuous = false;
+  recognition.continuous = handsFree; // keep the mic open in hands-free so you can talk over her
   recognition.maxAlternatives = 1;
 
   let finalText = "";
+  let sent = false;
   setListening(true);
 
   recognition.onresult = (e) => {
@@ -368,29 +407,55 @@ function startListening() {
       if (e.results[i].isFinal) finalText += chunk;
       else interim += chunk;
     }
-    input.value = (finalText + interim).trim();
+    const heard = (finalText + interim).trim();
+    // Barge-in: the moment you start talking, cut her off.
+    if (heard && synth && synth.speaking) synth.cancel();
+    input.value = heard;
     autoGrow();
+    // In hands-free, send as soon as a complete phrase lands.
+    if (handsFree && finalText.trim() && !sent) {
+      sent = true;
+      const text = finalText.trim();
+      finalText = "";
+      stopListening();
+      sendMessage(text, true);
+    }
   };
+
   recognition.onerror = (e) => {
     setListening(false);
-    if (handsFree) {
-      handsFree = false;
-      handsFreeBtn.classList.remove("active");
-      handsFreeBtn.textContent = "🎙️ Hands-free";
-    }
     const kind = e && e.error;
-    if (kind === "not-allowed" || kind === "service-not-allowed") {
-      voiceNote("Microphone blocked — tap the address bar's 🔒 and allow the mic, and make sure you're in Chrome (not the Messenger browser).");
-    } else if (kind === "no-speech") {
-      voiceNote("Didn't catch anything — tap the mic and try again.");
-    } else if (kind === "audio-capture") {
-      voiceNote("No microphone found on this device.");
+    if (kind === "not-allowed" || kind === "service-not-allowed" || kind === "audio-capture") {
+      if (handsFree) {
+        handsFree = false;
+        handsFreeBtn.classList.remove("active");
+        handsFreeBtn.textContent = "🎙️ Hands-free";
+      }
+      voiceNote(
+        kind === "audio-capture"
+          ? "No microphone found on this device."
+          : "Microphone blocked — allow the mic, and use Chrome (not the Messenger browser).",
+      );
     }
+    // "no-speech" / "aborted" are normal in hands-free — onend will resume.
   };
+
   recognition.onend = () => {
     setListening(false);
-    const text = input.value.trim();
-    if (text) sendMessage(text, true);
+    if (!handsFree) {
+      const text = input.value.trim();
+      if (text && !sent) {
+        sent = true;
+        sendMessage(text, true);
+      }
+      return;
+    }
+    // Hands-free: if nothing was sent (e.g. a silence), keep the mic alive.
+    if (!sent && !busy) {
+      setTimeout(() => {
+        if (handsFree && !recognizing && !busy) startListening();
+      }, 300);
+    }
   };
 
   try {
@@ -417,8 +482,12 @@ if (voiceSupported) {
   if (hintEl) hintEl.textContent = DEFAULT_HINT;
 
   micBtn.addEventListener("click", () => {
-    if (recognizing) stopListening();
-    else startListening();
+    if (recognizing) {
+      stopListening();
+    } else {
+      if (synth) synth.cancel(); // tapping the mic also stops her talking
+      startListening();
+    }
   });
 
   handsFreeBtn.addEventListener("click", () => {
