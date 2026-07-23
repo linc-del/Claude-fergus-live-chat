@@ -131,6 +131,7 @@ async function sendMessage(text, viaVoice = false) {
   busy = true;
   sendBtn.disabled = true;
   if (window.speechSynthesis) window.speechSynthesis.cancel();
+  if (typeof clearPending === "function") clearPending();
   input.value = "";
   autoGrow();
 
@@ -404,6 +405,31 @@ function speak(text, onEnd) {
   synth.speak(utter);
 }
 
+// Hands-free dictation buffer. We accumulate everything you say and only send
+// after you've actually stopped talking (a real pause), so you can speak a full
+// sentence — with little gaps — without it firing off each fragment.
+const SILENCE_MS = 1800; // how long a pause counts as "done talking"
+let pending = "";
+let flushTimer = null;
+
+function clearPending() {
+  pending = "";
+  clearTimeout(flushTimer);
+  flushTimer = null;
+}
+
+function scheduleFlush() {
+  clearTimeout(flushTimer);
+  flushTimer = setTimeout(() => {
+    const text = pending.trim();
+    pending = "";
+    input.value = "";
+    if (!text || isStopOnly(text)) return;
+    stopListening();
+    sendMessage(text, true);
+  }, SILENCE_MS);
+}
+
 function setListening(on) {
   recognizing = on;
   micBtn.classList.toggle("listening", on);
@@ -417,18 +443,20 @@ function startListening() {
   recognition.continuous = handsFree; // keep the mic open in hands-free so you can talk over her
   recognition.maxAlternatives = 1;
 
-  let finalText = "";
+  let finalText = ""; // used only for push-to-talk (non-hands-free)
   let sent = false;
   setListening(true);
 
   recognition.onresult = (e) => {
     let interim = "";
+    let finalChunk = "";
     for (let i = e.resultIndex; i < e.results.length; i++) {
       const chunk = e.results[i][0].transcript;
-      if (e.results[i].isFinal) finalText += chunk;
+      if (e.results[i].isFinal) finalChunk += chunk;
       else interim += chunk;
     }
-    const heard = (finalText + interim).trim();
+    const buffer = handsFree ? pending : finalText;
+    const heard = (buffer + " " + finalChunk + " " + interim).trim();
     if (!heard) return;
 
     // While she's speaking, be picky about what counts as "talking over her",
@@ -441,33 +469,27 @@ function startListening() {
 
       if (isStop) {
         synth.cancel(); // "stop" always works
-        finalText = "";
+        clearPending();
         input.value = "";
         autoGrow();
         return; // just stop; wait for the real command next
       }
       if (withinGrace || !strong) {
-        finalText = ""; // treat short/early speech as echo — ignore it
-        return;
+        return; // short/early speech is almost certainly echo — ignore it
       }
       synth.cancel(); // a genuine phrase over the top → cut her off and take it
     }
 
-    input.value = heard;
-    autoGrow();
-
-    // In hands-free, send as soon as a complete phrase lands.
-    if (handsFree && finalText.trim() && !sent) {
-      const text = finalText.trim();
-      if (isStopOnly(text)) {
-        finalText = ""; // a bare "stop" isn't a query — don't send it
-        input.value = "";
-        return;
-      }
-      sent = true;
-      finalText = "";
-      stopListening();
-      sendMessage(text, true);
+    if (handsFree) {
+      if (finalChunk) pending = (pending + " " + finalChunk).trim();
+      input.value = (pending + " " + interim).trim();
+      autoGrow();
+      // Don't send yet — wait until they stop talking (SILENCE_MS).
+      scheduleFlush();
+    } else {
+      finalText += finalChunk;
+      input.value = (finalText + " " + interim).trim();
+      autoGrow();
     }
   };
 
@@ -492,18 +514,21 @@ function startListening() {
   recognition.onend = () => {
     setListening(false);
     if (!handsFree) {
-      const text = input.value.trim();
+      // Push-to-talk: send the one utterance when the mic stops.
+      const text = finalText.trim();
       if (text && !sent) {
         sent = true;
         sendMessage(text, true);
       }
       return;
     }
-    // Hands-free: if nothing was sent (e.g. a silence), keep the mic alive.
-    if (!sent && !busy) {
+    // Hands-free: recognition often stops on its own between phrases. Keep the
+    // mic alive so the person can keep talking; the flush timer handles sending
+    // once they actually pause. (Don't restart while we're busy replying.)
+    if (!busy) {
       setTimeout(() => {
         if (handsFree && !recognizing && !busy) startListening();
-      }, 300);
+      }, 250);
     }
   };
 
@@ -547,6 +572,8 @@ if (voiceSupported) {
       if (!recognizing && !busy) startListening();
     } else {
       if (synth) synth.cancel();
+      clearPending();
+      input.value = "";
       stopListening();
     }
   });
