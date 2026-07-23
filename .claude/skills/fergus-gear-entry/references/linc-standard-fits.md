@@ -74,6 +74,7 @@ These show up a lot in real job history, so match them fast. Brands follow the r
 | ducting | 150mm Aluduct flexible duct | `150mm ducting` | extraction/HVAC runs |
 | extraction fan | Manrose inline extraction fan kit | MANFAN6785 | property-mgmt fan jobs |
 | bathroom heater | 3-in-1 bathroom heater (tri-colour LED, 2×275W) | VBHE-2L | |
+| rangehood | **Westinghouse rangehood** (Linc standard) | search `Westinghouse rangehood` | **fixed price: cost ~$111, sell ~$222**. White is normal; stainless sometimes — ask colour |
 
 > Not gear (billing lines seen in history, handle as charges/splits, don't stock-match):
 > "Sundries", "50% of Material Sales" / "Remainder of Material Sales" (deposit/progress split),
