@@ -410,7 +410,7 @@ function speak(text, onEnd) {
 // `committed` holds finalized speech carried across the recogniser's automatic
 // restarts; each active session's transcript is rebuilt fresh (never appended)
 // to avoid the word-stacking bug.
-const SILENCE_MS = 1800; // how long a pause counts as "done talking"
+const SILENCE_MS = 1100; // extra wait after the last finished phrase before sending
 let committed = "";
 let liveText = ""; // committed + the current session's finalized words
 let flushTimer = null;
@@ -443,7 +443,9 @@ function startListening() {
   if (!voiceSupported || recognizing || busy) return;
   recognition = new SpeechRec();
   recognition.lang = "en-NZ";
-  recognition.interimResults = true;
+  // No interim results — they stack/duplicate on some Android builds. We take
+  // only finished phrases, which the recogniser endpoints on a natural pause.
+  recognition.interimResults = false;
   recognition.continuous = handsFree; // keep the mic open in hands-free so you can talk over her
   recognition.maxAlternatives = 1;
 
@@ -453,26 +455,22 @@ function startListening() {
 
   recognition.onresult = (e) => {
     // Rebuild this session's transcript from scratch every event (index 0),
-    // so a growing phrase replaces the old one instead of stacking on it.
-    let interim = "";
+    // so nothing stacks. Only final results exist now.
     let fin = "";
     for (let i = 0; i < e.results.length; i++) {
-      const t = e.results[i][0].transcript;
-      if (e.results[i].isFinal) fin += t + " ";
-      else interim += t;
+      if (e.results[i].isFinal) fin += e.results[i][0].transcript + " ";
     }
     sessionFinal = fin.trim();
     liveText = (committed + " " + sessionFinal).trim();
-    const combined = (liveText + " " + interim).trim();
-    if (!combined) return;
+    if (!liveText) return;
 
     // While she's speaking, be picky about what counts as "talking over her",
     // so the echo of her own voice doesn't make her cut herself off.
     if (synth && synth.speaking) {
-      const isStop = STOP_WORDS.test(combined);
+      const isStop = STOP_WORDS.test(liveText);
       const withinGrace = Date.now() - speakStartedAt < BARGE_GRACE_MS;
       const strong =
-        combined.length >= BARGE_MIN_CHARS && combined.split(/\s+/).length >= BARGE_MIN_WORDS;
+        liveText.length >= BARGE_MIN_CHARS && liveText.split(/\s+/).length >= BARGE_MIN_WORDS;
 
       if (isStop) {
         synth.cancel(); // "stop" always works
@@ -487,7 +485,7 @@ function startListening() {
       synth.cancel(); // a genuine phrase over the top → cut her off and take it
     }
 
-    input.value = combined;
+    input.value = liveText;
     autoGrow();
     if (handsFree) scheduleFlush(); // send once they actually pause
   };
