@@ -299,7 +299,23 @@ const hintEl = document.getElementById("hint");
 
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
 const synth = window.speechSynthesis;
-const voiceSupported = !!SpeechRec;
+
+// In-app browsers (Messenger/Facebook/Instagram/etc.) expose the speech API but
+// the microphone doesn't actually work in them — voice needs real Chrome/Safari.
+const ua = navigator.userAgent || "";
+const inAppBrowser = /FBAN|FBAV|FB_IAB|Instagram|Messenger|Line\/|Twitter|WebView|; wv\)/i.test(ua);
+const voiceSupported = !!SpeechRec && !inAppBrowser;
+
+const DEFAULT_HINT = "Tap the mic to talk · turn on Hands-free for the van";
+let hintTimer = null;
+function voiceNote(msg) {
+  if (!hintEl) return;
+  hintEl.textContent = msg;
+  clearTimeout(hintTimer);
+  hintTimer = setTimeout(() => {
+    hintEl.textContent = DEFAULT_HINT;
+  }, 6000);
+}
 
 let handsFree = false;
 let recognizing = false;
@@ -355,7 +371,22 @@ function startListening() {
     input.value = (finalText + interim).trim();
     autoGrow();
   };
-  recognition.onerror = () => {};
+  recognition.onerror = (e) => {
+    setListening(false);
+    if (handsFree) {
+      handsFree = false;
+      handsFreeBtn.classList.remove("active");
+      handsFreeBtn.textContent = "🎙️ Hands-free";
+    }
+    const kind = e && e.error;
+    if (kind === "not-allowed" || kind === "service-not-allowed") {
+      voiceNote("Microphone blocked — tap the address bar's 🔒 and allow the mic, and make sure you're in Chrome (not the Messenger browser).");
+    } else if (kind === "no-speech") {
+      voiceNote("Didn't catch anything — tap the mic and try again.");
+    } else if (kind === "audio-capture") {
+      voiceNote("No microphone found on this device.");
+    }
+  };
   recognition.onend = () => {
     setListening(false);
     const text = input.value.trim();
@@ -366,6 +397,7 @@ function startListening() {
     recognition.start();
   } catch {
     setListening(false);
+    voiceNote("Voice isn't available here — open the site in Chrome and try again.");
   }
 }
 
@@ -382,7 +414,7 @@ function stopListening() {
 if (voiceSupported) {
   micBtn.hidden = false;
   handsFreeBtn.hidden = false;
-  if (hintEl) hintEl.textContent = "Tap the mic to talk · turn on Hands-free for the van";
+  if (hintEl) hintEl.textContent = DEFAULT_HINT;
 
   micBtn.addEventListener("click", () => {
     if (recognizing) stopListening();
@@ -401,7 +433,10 @@ if (voiceSupported) {
     }
   });
 } else if (hintEl) {
-  hintEl.textContent = "Voice needs Chrome (Android/desktop) — typing still works everywhere";
+  // Keep the mic/hands-free buttons hidden and explain why.
+  hintEl.textContent = inAppBrowser
+    ? "For voice, tap ⋯ (top-right) → “Open in Chrome”, then allow the microphone"
+    : "Voice needs Chrome (Android/desktop) — typing works everywhere";
 }
 
 newChatBtn.addEventListener("click", async () => {
