@@ -206,6 +206,15 @@ suppliers:
     Genesis Energy, Powerco, Steel & Tube, Jaycar, PB Tech]
   full_list_see: Fergus > Pricebooks
 
+  install_partners:            # trade partners we subcontract installs to
+    - partner: Bud — Fast Flow Plumbing
+      installs: Our Gree hot water heat pumps (HWC heat pump)
+      price: $2000 base — GST INCLUSIVE (≈ $1,739 + GST)
+      note: >
+        Price is GST-INCLUSIVE — unlike our usual ex-GST quoting. When quoting/costing a Gree
+        HWC heat pump install, use $2000 incl GST as Bud's base install charge, then add our own
+        supply + margin on top. Confirmed by Lincoln 2026-07-23.
+
 # -----------------------------------------------------------------------------
 # STOCK & INVENTORY  (new — the one real gap in the original 8 folders)
 # THREE LAYERS — don't confuse them:
