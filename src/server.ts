@@ -232,6 +232,57 @@ app.post("/api/chat", async (req, res) => {
   let retries = 0;
   const MAX_RETRIES = 2;
 
+  // Try to fetch supplier documents from Gmail if Claude requests them
+  async function fetchSupplierDocuments(text: string): Promise<string | null> {
+    try {
+      const searchMatch = text.match(/search(?:ing)?\s+Gmail\s+(?:for\s+)?([^\n.!?]+)/i);
+      if (!searchMatch) return null;
+
+      const query = searchMatch[1].trim();
+      send("thinking", { text: `Fetching from Gmail: ${query}...\n` });
+
+      const messages = await searchEmails(query, 5);
+      if (!messages || messages.length === 0) {
+        return `No emails found for query: "${query}"`;
+      }
+
+      let results = `Found ${messages.length} email(s) for query "${query}":\n\n`;
+      for (let i = 0; i < Math.min(messages.length, 2); i++) {
+        try {
+          const fullMsg = await getMessage(messages[i].id);
+          const headers = fullMsg.payload.headers || [];
+          const subject = headers.find((h: any) => h.name === "Subject")?.value || "(no subject)";
+          const from = headers.find((h: any) => h.name === "From")?.value || "(no sender)";
+          const date = headers.find((h: any) => h.name === "Date")?.value || "(no date)";
+
+          results += `\n**Email ${i + 1}:** ${subject}\n`;
+          results += `From: ${from}\n`;
+          results += `Date: ${date}\n`;
+
+          // Extract text body
+          const body = fullMsg.payload.parts
+            ?.find((p: any) => p.mimeType === "text/plain")
+            ?.body?.data || fullMsg.payload.body?.data;
+          if (body) {
+            const text = Buffer.from(body, "base64url").toString("utf8");
+            results += `\nContent:\n${text.slice(0, 500)}${text.length > 500 ? "..." : ""}\n`;
+          }
+
+          // List attachments
+          const attachments = fullMsg.payload.parts?.filter((p: any) => p.filename) || [];
+          if (attachments.length > 0) {
+            results += `\nAttachments: ${attachments.map((a: any) => a.filename).join(", ")}\n`;
+          }
+        } catch (e) {
+          results += `\nCould not fetch email ${i + 1}: ${(e as any)?.message}\n`;
+        }
+      }
+      return results;
+    } catch (err) {
+      return `Error fetching Gmail: ${(err as any)?.message}`;
+    }
+  }
+
   try {
     while (!aborted && guard++ < 12) {
       let streamedAny = false;
@@ -268,6 +319,21 @@ app.post("/api/chat", async (req, res) => {
         if (aborted) break;
 
         const final = await stream.finalMessage();
+
+        // Check if Claude is requesting Gmail documents and fetch them automatically
+        const assistantText = final.content
+          .filter((c: any) => c.type === "text")
+          .map((c: any) => c.text)
+          .join("");
+
+        if (isGmailConnected() && assistantText) {
+          const gmailResult = await fetchSupplierDocuments(assistantText);
+          if (gmailResult) {
+            // Add the Gmail results to the assistant's content
+            final.content.push({ type: "text", text: `\n\n[Gmail Search Results]\n${gmailResult}` } as any);
+          }
+        }
+
         session.messages.push({ role: "assistant", content: final.content });
 
         if (final.stop_reason === "pause_turn") continue;

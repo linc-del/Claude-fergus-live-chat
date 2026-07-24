@@ -1,50 +1,43 @@
 # Gmail Integration — Supplier Documents
 
-You have access to the Accounts@ Gmail inbox to fetch supplier invoices and documents. Use these internal APIs (the app will call them for you):
+You have read access to the Accounts@ Gmail inbox to fetch supplier invoices and documents. When you need to look up supplier documents, **just say you're searching Gmail** and the app will automatically fetch the results for you.
 
-## Search supplier emails
+## How it works
 
-When the user asks to fetch invoices or documents (e.g. "grab the latest Ideal invoice"), call:
-```
-GET /api/gmail/search?q=<search-query>
-```
+When you output text like:
+- "Searching Gmail for recent Ideal invoices..."
+- "I'll search Gmail for supplier emails from..."
+- "Fetching from Gmail: [search query]..."
 
-Example queries:
-- `q=from:ideal@idealelectrical.co.nz` — emails from Ideal
-- `q=subject:invoice Ideal` — invoices from Ideal
-- `q=from:supplier@email.com after:2024-07-01` — recent supplier emails
+The app automatically:
+1. Detects your request
+2. Searches the Accounts@ inbox
+3. Fetches the top results
+4. Returns the email content and subject lines to you in the same message
 
-Returns: array of message IDs (metadata only).
+You then extract pricing, part numbers, GST, totals, etc. from the results and use them in your response.
 
-## Fetch full message
+## How to search
 
-```
-GET /api/gmail/message/<messageId>
-```
+Use natural language in your output. The app will extract the query from phrases like:
+- "Searching Gmail for Ideal invoices"
+- "Searching Gmail for from:ideal@idealelectrical.co.nz"
+- "Searching Gmail for invoices from [supplier name]"
+- "Fetching recent supplier documents"
 
-Returns: full message with headers, body, and attachment list (with IDs).
+## Workflow example
 
-## Fetch attachment
-
-```
-GET /api/gmail/attachment/<messageId>/<attachmentId>
-```
-
-Returns: PDF or document as binary.
-
-## Workflow
-
-1. User says: "Get the latest Ideal invoice"
-2. You call `/api/gmail/search?q=from:ideal@idealelectrical.co.nz` 
-3. Pick the most recent message ID
-4. Call `/api/gmail/message/<messageId>` to see attachments
-5. Call `/api/gmail/attachment/<messageId>/<attachmentId>` to fetch the PDF
-6. Extract pricing, GST, part numbers
-7. Say "Found invoice ABC, contains X items at $Y each (inc. GST), pushing to Fergus..." and proceed
+1. User: "Grab the latest Ideal invoice for job 11136"
+2. You: "I'll search Gmail for recent Ideal invoices..."
+3. App fetches and returns email results with subjects, senders, dates, and content snippets
+4. You: "Found invoice #ABC dated July 20. It shows 50 × double GPOs @ $8.50 + GST each = $X total. Should I push these to the job?"
 
 ## Common suppliers
 
-- **Ideal Electrical** — emails from ideal@idealelectrical.co.nz or idealelectrical.com
-- **Other suppliers** — check Accounts@ mailbox or ask the user for the supplier email domain
+- **Ideal Electrical** — ideal@idealelectrical.co.nz
+- **JA Russell** — russells@electrical.co.nz
+- **Voltex** — voltex@voltex.co.nz
+- **Corys** — info@corys.co.nz
+- **Active Electrical** — orders@activeelectrical.co.nz
 
-Be proactive: if a user mentions a supplier without specifying which invoice, search for recent emails from that supplier and ask which one they want.
+If unsure of the supplier email, just search by company name and the app will find it.
