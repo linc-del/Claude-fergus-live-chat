@@ -182,7 +182,9 @@ app.post("/api/chat", async (req, res) => {
           system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
           mcp_servers: [mcpServer],
           tools: [{ type: "mcp_toolset", mcp_server_name: "fergus" }],
-          thinking: { type: "adaptive", display: "summarized" },
+          // No extended thinking — keeps Haiku cheap/fast and avoids the
+          // adaptive-thinking config Haiku doesn't accept. (Bigger models can
+          // still answer well without it for lookups/gear entry.)
           messages: session.messages,
         } as any);
         currentStream = stream;

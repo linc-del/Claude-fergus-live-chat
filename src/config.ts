@@ -19,7 +19,9 @@ function required(name: string): string {
 
 export const ANTHROPIC_API_KEY = required("ANTHROPIC_API_KEY");
 export const APP_PASSWORD = required("APP_PASSWORD");
-export const MODEL = process.env.MODEL || "claude-opus-4-8";
+// claude-haiku-4-5 = cheapest tier (~1/5 of Opus). Override with the MODEL env
+// var to move up to claude-sonnet-5 or claude-opus-4-8 if you want more grunt.
+export const MODEL = process.env.MODEL || "claude-haiku-4-5";
 export const PORT = Number(process.env.PORT || 3000);
 export const FERGUS_MCP_URL = process.env.FERGUS_MCP_URL || "https://mcp.fergus.com/mcp";
 
