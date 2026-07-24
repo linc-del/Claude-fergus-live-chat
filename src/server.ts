@@ -232,56 +232,112 @@ app.post("/api/chat", async (req, res) => {
   let retries = 0;
   const MAX_RETRIES = 2;
 
-  // Try to fetch supplier documents from Gmail if Claude requests them
-  async function fetchSupplierDocuments(text: string): Promise<string | null> {
-    try {
-      const searchMatch = text.match(/search(?:ing)?\s+Gmail\s+(?:for\s+)?([^\n.!?]+)/i);
-      if (!searchMatch) return null;
-
-      const query = searchMatch[1].trim();
-      send("thinking", { text: `Fetching from Gmail: ${query}...\n` });
-
-      const messages = await searchEmails(query, 5);
-      if (!messages || messages.length === 0) {
-        return `No emails found for query: "${query}"`;
+  // ---- Gmail as real client-side tools ----------------------------------
+  // Walk a Gmail MIME tree, pulling the plain-text body and any attachments.
+  function extractParts(payload: any): { text: string; attachments: any[] } {
+    let text = "";
+    const attachments: any[] = [];
+    const walk = (part: any) => {
+      if (!part) return;
+      if (part.filename && part.body?.attachmentId) {
+        attachments.push({
+          filename: part.filename,
+          mime: part.mimeType,
+          attachment_id: part.body.attachmentId,
+        });
       }
-
-      let results = `Found ${messages.length} email(s) for query "${query}":\n\n`;
-      for (let i = 0; i < Math.min(messages.length, 2); i++) {
-        try {
-          const fullMsg = await getMessage(messages[i].id);
-          const headers = fullMsg.payload.headers || [];
-          const subject = headers.find((h: any) => h.name === "Subject")?.value || "(no subject)";
-          const from = headers.find((h: any) => h.name === "From")?.value || "(no sender)";
-          const date = headers.find((h: any) => h.name === "Date")?.value || "(no date)";
-
-          results += `\n**Email ${i + 1}:** ${subject}\n`;
-          results += `From: ${from}\n`;
-          results += `Date: ${date}\n`;
-
-          // Extract text body
-          const body = fullMsg.payload.parts
-            ?.find((p: any) => p.mimeType === "text/plain")
-            ?.body?.data || fullMsg.payload.body?.data;
-          if (body) {
-            const text = Buffer.from(body, "base64url").toString("utf8");
-            results += `\nContent:\n${text.slice(0, 500)}${text.length > 500 ? "..." : ""}\n`;
-          }
-
-          // List attachments
-          const attachments = fullMsg.payload.parts?.filter((p: any) => p.filename) || [];
-          if (attachments.length > 0) {
-            results += `\nAttachments: ${attachments.map((a: any) => a.filename).join(", ")}\n`;
-          }
-        } catch (e) {
-          results += `\nCould not fetch email ${i + 1}: ${(e as any)?.message}\n`;
-        }
+      if (part.mimeType === "text/plain" && part.body?.data) {
+        text += Buffer.from(part.body.data, "base64url").toString("utf8");
       }
-      return results;
-    } catch (err) {
-      return `Error fetching Gmail: ${(err as any)?.message}`;
-    }
+      if (Array.isArray(part.parts)) part.parts.forEach(walk);
+    };
+    walk(payload);
+    return { text, attachments };
   }
+
+  async function runGmailSearch(query: string): Promise<string> {
+    const messages = await searchEmails(query, 8);
+    if (!messages?.length) return `No emails found for "${query}".`;
+    const out: any[] = [];
+    for (let i = 0; i < Math.min(messages.length, 5); i++) {
+      try {
+        const full = await getMessage(messages[i].id);
+        const headers = full.payload?.headers || [];
+        const h = (n: string) =>
+          headers.find((x: any) => x.name?.toLowerCase() === n)?.value || "";
+        const { text, attachments } = extractParts(full.payload);
+        out.push({
+          message_id: messages[i].id,
+          subject: h("subject"),
+          from: h("from"),
+          date: h("date"),
+          snippet: (text || full.snippet || "").replace(/\s+/g, " ").slice(0, 800),
+          attachments,
+        });
+      } catch (e: any) {
+        out.push({ message_id: messages[i].id, error: e?.message });
+      }
+    }
+    return JSON.stringify(out, null, 2);
+  }
+
+  async function runReadAttachment(
+    messageId: string,
+    attachmentId: string,
+    filename?: string,
+  ): Promise<any> {
+    const buf = await getAttachment(messageId, attachmentId);
+    const b64 = buf.toString("base64");
+    const name = filename || "attachment";
+    if (/\.pdf$/i.test(name)) {
+      return [
+        {
+          type: "document",
+          source: { type: "base64", media_type: "application/pdf", data: b64 },
+          title: name,
+        },
+      ];
+    }
+    const img = /\.(png|jpe?g|gif|webp)$/i.exec(name);
+    if (img) {
+      const ext = img[1].toLowerCase();
+      const media = ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : ext === "webp" ? "image/webp" : "image/jpeg";
+      return [{ type: "image", source: { type: "base64", media_type: media, data: b64 } }];
+    }
+    // Fallback: treat as text
+    return buf.toString("utf8").slice(0, 8000);
+  }
+
+  const gmailTools = isGmailConnected()
+    ? [
+        {
+          name: "search_gmail",
+          description:
+            "Search the Accounts@ Gmail inbox for supplier emails and invoices. Uses Gmail search syntax. Returns matching emails as JSON: message_id, subject, from, date, a body snippet, and any attachments (filename + attachment_id, needed for read_gmail_attachment). Examples of good queries: 'from:ideal invoice', 'Voltex 11136', 'subject:invoice newer_than:60d', 'JA Russell'.",
+          input_schema: {
+            type: "object",
+            properties: {
+              query: { type: "string", description: "Gmail search query." },
+            },
+            required: ["query"],
+          },
+        },
+        {
+          name: "read_gmail_attachment",
+          description:
+            "Fetch and read a PDF/image attachment from a Gmail message so you can see the invoice contents — line items, part numbers, prices, GST, totals. Use message_id and attachment_id returned by search_gmail.",
+          input_schema: {
+            type: "object",
+            properties: {
+              message_id: { type: "string" },
+              attachment_id: { type: "string" },
+              filename: { type: "string", description: "Attachment filename." },
+            },
+            required: ["message_id", "attachment_id"],
+          },
+        },
+      ]
+    : [];
 
   try {
     while (!aborted && guard++ < 12) {
@@ -293,7 +349,7 @@ app.post("/api/chat", async (req, res) => {
           betas: ["mcp-client-2025-11-20"],
           system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
           mcp_servers: [mcpServer],
-          tools: [{ type: "mcp_toolset", mcp_server_name: "fergus" }],
+          tools: [{ type: "mcp_toolset", mcp_server_name: "fergus" }, ...gmailTools],
           // No extended thinking — keeps Haiku cheap/fast and avoids the
           // adaptive-thinking config Haiku doesn't accept. (Bigger models can
           // still answer well without it for lookups/gear entry.)
@@ -303,8 +359,13 @@ app.post("/api/chat", async (req, res) => {
 
         for await (const event of stream as any) {
           if (aborted) break;
-          if (event.type === "content_block_start" && event.content_block?.type === "mcp_tool_use") {
-            send("tool", { name: event.content_block.name });
+          if (
+            event.type === "content_block_start" &&
+            (event.content_block?.type === "mcp_tool_use" || event.content_block?.type === "tool_use")
+          ) {
+            const raw = event.content_block.name || "";
+            const name = raw === "search_gmail" ? "Gmail · search" : raw === "read_gmail_attachment" ? "Gmail · read document" : raw;
+            send("tool", { name });
           } else if (event.type === "content_block_delta") {
             const delta = event.delta;
             if (delta?.type === "text_delta") {
@@ -319,26 +380,51 @@ app.post("/api/chat", async (req, res) => {
         if (aborted) break;
 
         const final = await stream.finalMessage();
-
-        // Check if Claude is requesting Gmail documents and fetch them automatically
-        const assistantText = final.content
-          .filter((c: any) => c.type === "text")
-          .map((c: any) => c.text)
-          .join("");
-
-        if (isGmailConnected() && assistantText) {
-          const gmailResult = await fetchSupplierDocuments(assistantText);
-          if (gmailResult) {
-            // Add the Gmail results to the assistant's content
-            final.content.push({ type: "text", text: `\n\n[Gmail Search Results]\n${gmailResult}` } as any);
-          }
-        }
-
         session.messages.push({ role: "assistant", content: final.content });
 
         if (final.stop_reason === "pause_turn") continue;
         if (final.stop_reason === "refusal") {
           send("error", { message: "The request was declined for safety reasons." });
+          break;
+        }
+
+        // Handle our client-side Gmail tools, then loop so Claude sees the results.
+        if (final.stop_reason === "tool_use") {
+          const toolUses = final.content.filter((c: any) => c.type === "tool_use") as any[];
+          const toolResults: any[] = [];
+          for (const tu of toolUses) {
+            try {
+              if (tu.name === "search_gmail") {
+                const content = await runGmailSearch(String(tu.input?.query ?? ""));
+                toolResults.push({ type: "tool_result", tool_use_id: tu.id, content });
+              } else if (tu.name === "read_gmail_attachment") {
+                const content = await runReadAttachment(
+                  String(tu.input?.message_id ?? ""),
+                  String(tu.input?.attachment_id ?? ""),
+                  tu.input?.filename,
+                );
+                toolResults.push({ type: "tool_result", tool_use_id: tu.id, content });
+              } else {
+                toolResults.push({
+                  type: "tool_result",
+                  tool_use_id: tu.id,
+                  content: `Unknown tool "${tu.name}".`,
+                  is_error: true,
+                });
+              }
+            } catch (e: any) {
+              toolResults.push({
+                type: "tool_result",
+                tool_use_id: tu.id,
+                content: `Couldn't complete ${tu.name}: ${e?.message ?? e}`,
+                is_error: true,
+              });
+            }
+          }
+          if (toolResults.length) {
+            session.messages.push({ role: "user", content: toolResults });
+            continue; // back around so Claude can read the results and reply
+          }
         }
         break; // success
       } catch (err: any) {
