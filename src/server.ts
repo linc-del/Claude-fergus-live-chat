@@ -13,7 +13,7 @@ import {
 } from "./config.js";
 import { checkPassword, issueSession, clearSession, requireAuth } from "./auth.js";
 import { startAuth as startFergusAuth, handleCallback as handleFergusCallback, getAccessToken as getFergusToken, isConnected as isFergusConnected, disconnect as disconnectFergus } from "./fergus.js";
-import { startAuth as startGmailAuth, handleCallback as handleGmailCallback, getAccessToken as getGmailToken, isConnected as isGmailConnected, disconnect as disconnectGmail } from "./gmail.js";
+import { startAuth as startGmailAuth, handleCallback as handleGmailCallback, getAccessToken as getGmailToken, isConnected as isGmailConnected, disconnect as disconnectGmail, searchEmails, getMessage, getAttachment } from "./gmail.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(__dirname, "..", "public");
@@ -133,6 +133,40 @@ app.get("/api/gmail/callback", async (req, res) => {
 app.post("/api/gmail/disconnect", (_req, res) => {
   disconnectGmail();
   res.json({ ok: true });
+});
+
+app.get("/api/gmail/search", async (req, res) => {
+  try {
+    const query = String(req.query.q || "");
+    if (!query) {
+      res.status(400).json({ error: "q (query) required" });
+      return;
+    }
+    const messages = await searchEmails(query, 10);
+    res.json({ messages });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Gmail search failed" });
+  }
+});
+
+app.get("/api/gmail/message/:messageId", async (req, res) => {
+  try {
+    const message = await getMessage(req.params.messageId);
+    res.json(message);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Message fetch failed" });
+  }
+});
+
+app.get("/api/gmail/attachment/:messageId/:attachmentId", async (req, res) => {
+  try {
+    const buffer = await getAttachment(req.params.messageId, req.params.attachmentId);
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader("Content-Disposition", `attachment; filename="attachment"`);
+    res.send(buffer);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? "Attachment fetch failed" });
+  }
 });
 
 app.post("/api/chat", async (req, res) => {

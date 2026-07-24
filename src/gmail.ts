@@ -130,3 +130,42 @@ export function disconnect(): void {
     /* ignore */
   }
 }
+
+export async function searchEmails(query: string, maxResults = 5): Promise<any[]> {
+  const token = await getAccessToken();
+  const params = new URLSearchParams({
+    q: query,
+    maxResults: String(maxResults),
+  });
+
+  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?${params}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) throw new Error(`Gmail search failed: ${res.statusText}`);
+  const data = (await res.json()) as any;
+  return data.messages || [];
+}
+
+export async function getMessage(messageId: string): Promise<any> {
+  const token = await getAccessToken();
+  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=full`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!res.ok) throw new Error(`Gmail fetch failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function getAttachment(messageId: string, attachmentId: string): Promise<Buffer> {
+  const token = await getAccessToken();
+  const res = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/attachments/${attachmentId}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+
+  if (!res.ok) throw new Error(`Attachment fetch failed: ${res.statusText}`);
+  const data = (await res.json()) as any;
+  // data.data is base64url encoded
+  return Buffer.from(data.data, "base64url");
+}
