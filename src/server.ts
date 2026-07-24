@@ -12,7 +12,8 @@ import {
   FERGUS_MCP_URL,
 } from "./config.js";
 import { checkPassword, issueSession, clearSession, requireAuth } from "./auth.js";
-import { startAuth, handleCallback, getAccessToken, isConnected, disconnect } from "./fergus.js";
+import { startAuth as startFergusAuth, handleCallback as handleFergusCallback, getAccessToken as getFergusToken, isConnected as isFergusConnected, disconnect as disconnectFergus } from "./fergus.js";
+import { startAuth as startGmailAuth, handleCallback as handleGmailCallback, getAccessToken as getGmailToken, isConnected as isGmailConnected, disconnect as disconnectGmail } from "./gmail.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(__dirname, "..", "public");
@@ -79,13 +80,13 @@ app.use(requireAuth);
 
 app.get("/api/session", (_req, res) => res.json({ sessionId: crypto.randomUUID() }));
 app.get("/api/health", (_req, res) =>
-  res.json({ ok: true, model: MODEL, fergusConnected: isConnected() }),
+  res.json({ ok: true, model: MODEL, fergusConnected: isFergusConnected(), gmailConnected: isGmailConnected() }),
 );
 
-app.get("/api/fergus/status", (_req, res) => res.json({ connected: isConnected() }));
+app.get("/api/fergus/status", (_req, res) => res.json({ connected: isFergusConnected() }));
 app.get("/api/fergus/connect", async (_req, res) => {
   try {
-    res.redirect(await startAuth());
+    res.redirect(await startFergusAuth());
   } catch (err: any) {
     res.redirect("/?fergus_error=" + encodeURIComponent(err?.message ?? "Could not start Fergus login"));
   }
@@ -97,14 +98,40 @@ app.get("/api/fergus/callback", async (req, res) => {
     return;
   }
   try {
-    await handleCallback(code, state);
+    await handleFergusCallback(code, state);
     res.redirect("/?fergus=connected");
   } catch (err: any) {
     res.redirect("/?fergus_error=" + encodeURIComponent(err?.message ?? "Fergus login failed"));
   }
 });
 app.post("/api/fergus/disconnect", (_req, res) => {
-  disconnect();
+  disconnectFergus();
+  res.json({ ok: true });
+});
+
+app.get("/api/gmail/status", (_req, res) => res.json({ connected: isGmailConnected() }));
+app.get("/api/gmail/connect", async (_req, res) => {
+  try {
+    res.redirect(await startGmailAuth());
+  } catch (err: any) {
+    res.redirect("/?gmail_error=" + encodeURIComponent(err?.message ?? "Could not start Gmail login"));
+  }
+});
+app.get("/api/gmail/callback", async (req, res) => {
+  const { code, state, error } = req.query as Record<string, string>;
+  if (error) {
+    res.redirect("/?gmail_error=" + encodeURIComponent(error));
+    return;
+  }
+  try {
+    await handleGmailCallback(code, state);
+    res.redirect("/?gmail=connected");
+  } catch (err: any) {
+    res.redirect("/?gmail_error=" + encodeURIComponent(err?.message ?? "Gmail login failed"));
+  }
+});
+app.post("/api/gmail/disconnect", (_req, res) => {
+  disconnectGmail();
   res.json({ ok: true });
 });
 
@@ -122,10 +149,10 @@ app.post("/api/chat", async (req, res) => {
   // Make sure Fergus is connected and we have a fresh token *before* streaming.
   let fergusToken: string;
   try {
-    fergusToken = await getAccessToken();
+    fergusToken = await getFergusToken();
   } catch {
     res.status(409).json({
-      error: "Fergus isn't connected yet — click “Connect Fergus” at the top, then try again.",
+      error: “Fergus isn't connected yet — click “Connect Fergus” at the top, then try again.”,
       needsFergus: true,
     });
     return;

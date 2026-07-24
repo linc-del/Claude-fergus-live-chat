@@ -25,6 +25,9 @@ export const MODEL = process.env.MODEL || "claude-haiku-4-5";
 export const PORT = Number(process.env.PORT || 3000);
 export const FERGUS_MCP_URL = process.env.FERGUS_MCP_URL || "https://mcp.fergus.com/mcp";
 
+export const GMAIL_CLIENT_ID = process.env.GMAIL_CLIENT_ID || "";
+export const GMAIL_CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET || "";
+
 // Public base URL the app is reached at (used to build the OAuth redirect URI).
 // Locally this is http://localhost:3000; in the cloud, set PUBLIC_URL to your domain.
 export const PUBLIC_URL = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/+$/, "");
@@ -52,4 +55,12 @@ export const FERGUS_OAUTH = {
   register: "https://mcp.fergus.com/oauth/register",
   scope: "profile",
   redirectUri: `${PUBLIC_URL}/api/fergus/callback`,
+};
+
+// Gmail OAuth endpoints (Google).
+export const GMAIL_OAUTH = {
+  authorize: "https://accounts.google.com/o/oauth2/v2/auth",
+  token: "https://oauth2.googleapis.com/token",
+  scope: "https://www.googleapis.com/auth/gmail.readonly",
+  redirectUri: `${PUBLIC_URL}/api/gmail/callback`,
 };

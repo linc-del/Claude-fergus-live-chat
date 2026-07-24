@@ -244,6 +244,8 @@ document.querySelectorAll(".chip").forEach((chip) => {
 
 const fergusPill = document.getElementById("fergusPill");
 const connectBtn = document.getElementById("connectFergus");
+const gmailPill = document.getElementById("gmailPill");
+const connectGmailBtn = document.getElementById("connectGmail");
 const banner = document.getElementById("fergusBanner");
 const bannerConnect = document.getElementById("bannerConnect");
 const logoutBtn = document.getElementById("logout");
@@ -251,7 +253,11 @@ const logoutBtn = document.getElementById("logout");
 function goConnect() {
   window.location.href = "/api/fergus/connect";
 }
+function goConnectGmail() {
+  window.location.href = "/api/gmail/connect";
+}
 connectBtn.addEventListener("click", goConnect);
+connectGmailBtn.addEventListener("click", goConnectGmail);
 bannerConnect.addEventListener("click", goConnect);
 
 logoutBtn.addEventListener("click", async () => {
@@ -280,21 +286,47 @@ async function refreshFergusStatus() {
   }
 }
 
+async function refreshGmailStatus() {
+  try {
+    const res = await fetch("/api/gmail/status");
+    const { connected } = await res.json();
+    if (connected) {
+      gmailPill.textContent = "Gmail: connected";
+      gmailPill.className = "pill pill-on";
+      connectGmailBtn.hidden = true;
+    } else {
+      gmailPill.textContent = "Gmail: not connected";
+      gmailPill.className = "pill pill-off";
+      connectGmailBtn.hidden = false;
+    }
+  } catch {
+    gmailPill.textContent = "Gmail: unknown";
+    gmailPill.className = "pill pill-off";
+  }
+}
+
 // Surface the result of the OAuth round-trip and clean up the URL.
 (function handleReturnParams() {
   const params = new URLSearchParams(window.location.search);
-  const err = params.get("fergus_error");
-  if (err) {
+  const ferguErr = params.get("fergus_error");
+  const gmailErr = params.get("gmail_error");
+  if (ferguErr) {
     banner.hidden = false;
-    document.getElementById("bannerText").textContent = "Fergus connection failed: " + err;
+    document.getElementById("bannerText").textContent = "Fergus connection failed: " + ferguErr;
   }
-  if (params.get("fergus") || err) {
+  if (gmailErr) {
+    banner.hidden = false;
+    document.getElementById("bannerText").textContent = "Gmail connection failed: " + gmailErr;
+  }
+  if (params.get("fergus") || ferguErr || params.get("gmail") || gmailErr) {
     window.history.replaceState({}, "", "/");
   }
 })();
 
 refreshFergusStatus();
+refreshGmailStatus();
 setInterval(refreshFergusStatus, 60000);
+setInterval(refreshGmailStatus, 60000);
 
 /* ---------- Voice: talk to it, and it talks back ---------- */
 
