@@ -152,7 +152,7 @@ app.post("/api/chat", async (req, res) => {
     fergusToken = await getFergusToken();
   } catch {
     res.status(409).json({
-      error: “Fergus isn't connected yet — click “Connect Fergus” at the top, then try again.”,
+      error: "Fergus is not connected yet. Click Connect Fergus at the top, then try again.",
       needsFergus: true,
     });
     return;
@@ -276,5 +276,5 @@ app.listen(PORT, () => {
   console.log(`\n  Claude ⇄ Fergus live chat`);
   console.log(`  → ${PUBLIC_URL}`);
   console.log(`  Model:  ${MODEL}`);
-  console.log(`  Fergus: ${FERGUS_MCP_URL} (connected: ${isConnected()})\n`);
+  console.log(`  Fergus: ${FERGUS_MCP_URL} (connected: ${isFergusConnected()})\n`);
 });
