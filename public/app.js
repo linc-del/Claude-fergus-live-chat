@@ -289,15 +289,23 @@ async function refreshFergusStatus() {
 async function refreshGmailStatus() {
   try {
     const res = await fetch("/api/gmail/status");
-    const { connected } = await res.json();
-    if (connected) {
-      gmailPill.textContent = "Gmail: connected";
+    const data = await res.json();
+    const accounts = data.accounts || [];
+    if (data.connected && accounts.length) {
+      const label =
+        accounts.length === 1 ? "Gmail: 1 inbox" : `Gmail: ${accounts.length} inboxes`;
+      gmailPill.textContent = label;
+      gmailPill.title = accounts.join("\n");
       gmailPill.className = "pill pill-on";
-      connectGmailBtn.hidden = true;
+      // Keep the button visible so you can add more mailboxes.
+      connectGmailBtn.hidden = false;
+      connectGmailBtn.textContent = "Add inbox";
     } else {
       gmailPill.textContent = "Gmail: not connected";
+      gmailPill.title = "";
       gmailPill.className = "pill pill-off";
       connectGmailBtn.hidden = false;
+      connectGmailBtn.textContent = "Connect Gmail";
     }
   } catch {
     gmailPill.textContent = "Gmail: unknown";

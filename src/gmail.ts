@@ -3,31 +3,55 @@ import fs from "node:fs";
 import path from "node:path";
 import { DATA_DIR, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_OAUTH } from "./config.js";
 
-interface GmailTokens {
+// Multiple mailboxes can be connected. Tokens are stored as a map keyed by the
+// account's email address so Claude can search across all of them at once.
+interface Account {
+  email: string;
   access_token: string;
   refresh_token?: string;
   expires_at: number;
 }
+type Store = Record<string, Account>;
 
 const TOKEN_FILE = path.join(DATA_DIR, "gmail-tokens.json");
 
-function loadTokens(): GmailTokens | null {
+function loadStore(): Store {
   try {
-    const data = fs.readFileSync(TOKEN_FILE, "utf8");
-    return JSON.parse(data);
+    const raw = JSON.parse(fs.readFileSync(TOKEN_FILE, "utf8"));
+    // Legacy single-token format (pre multi-account): wrap it so it still works
+    // until normalizeStore() re-keys it by the real email address.
+    if (raw && typeof raw === "object" && raw.access_token) {
+      return {
+        _legacy: {
+          email: "",
+          access_token: raw.access_token,
+          refresh_token: raw.refresh_token,
+          expires_at: raw.expires_at ?? 0,
+        },
+      };
+    }
+    if (raw && typeof raw === "object") return raw as Store;
   } catch {
-    return null;
+    /* no file yet */
   }
+  return {};
 }
 
-function saveTokens(tokens: GmailTokens): void {
-  fs.writeFileSync(TOKEN_FILE, JSON.stringify(tokens, null, 2), { mode: 0o600 });
+function saveStore(store: Store): void {
+  fs.writeFileSync(TOKEN_FILE, JSON.stringify(store, null, 2), { mode: 0o600 });
 }
+
+function findKey(store: Store, account: string): string {
+  if (store[account]) return account;
+  for (const k of Object.keys(store)) if (store[k].email === account) return k;
+  throw new Error(`Mailbox "${account}" isn't connected.`);
+}
+
+/* ---------- OAuth ---------- */
 
 function generateCodeVerifier(): string {
   return crypto.randomBytes(32).toString("base64url");
 }
-
 function generateCodeChallenge(verifier: string): string {
   return crypto.createHash("sha256").update(verifier).digest("base64url");
 }
@@ -55,6 +79,15 @@ export async function startAuth(): Promise<string> {
   return `${GMAIL_OAUTH.authorize}?${params}`;
 }
 
+async function getProfileEmail(token: string): Promise<string> {
+  const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/profile", {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw new Error(`Couldn't read Gmail profile: ${res.statusText}`);
+  const data = (await res.json()) as any;
+  return data.emailAddress as string;
+}
+
 export async function handleCallback(code: string, state: string): Promise<void> {
   if (state !== stateToken) throw new Error("State mismatch");
 
@@ -72,100 +105,162 @@ export async function handleCallback(code: string, state: string): Promise<void>
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
   });
-
   if (!res.ok) throw new Error(`Token exchange failed: ${res.statusText}`);
   const data = (await res.json()) as any;
 
-  saveTokens({
+  const email = await getProfileEmail(data.access_token);
+  const store = loadStore();
+  if (store._legacy) delete store._legacy;
+  store[email] = {
+    email,
     access_token: data.access_token,
-    refresh_token: data.refresh_token,
+    // Google only returns a refresh_token on first consent — keep any existing one.
+    refresh_token: data.refresh_token ?? store[email]?.refresh_token,
     expires_at: Date.now() + data.expires_in * 1000,
-  });
+  };
+  saveStore(store);
 
   codeVerifier = "";
   stateToken = "";
 }
 
-export async function getAccessToken(): Promise<string> {
-  const tokens = loadTokens();
-  if (!tokens) throw new Error("Gmail not connected");
-
-  if (Date.now() < tokens.expires_at) return tokens.access_token;
-
-  // Refresh token
-  if (!tokens.refresh_token) throw new Error("No refresh token");
+async function refresh(acc: Account): Promise<string> {
+  if (!acc.refresh_token) throw new Error("No refresh token — reconnect this mailbox.");
   const body = new URLSearchParams({
     client_id: GMAIL_CLIENT_ID,
     client_secret: GMAIL_CLIENT_SECRET,
-    refresh_token: tokens.refresh_token,
+    refresh_token: acc.refresh_token,
     grant_type: "refresh_token",
   });
-
   const res = await fetch(GMAIL_OAUTH.token, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: body.toString(),
   });
-
   if (!res.ok) throw new Error(`Token refresh failed: ${res.statusText}`);
   const data = (await res.json()) as any;
-
-  saveTokens({
-    access_token: data.access_token,
-    refresh_token: tokens.refresh_token,
-    expires_at: Date.now() + data.expires_in * 1000,
-  });
-
-  return data.access_token;
+  acc.access_token = data.access_token;
+  acc.expires_at = Date.now() + data.expires_in * 1000;
+  return acc.access_token;
 }
 
-export function isConnected(): boolean {
-  return loadTokens() !== null;
+// Return a valid access token for a store key, refreshing + persisting if needed.
+async function validToken(store: Store, key: string): Promise<string> {
+  const acc = store[key];
+  if (Date.now() < acc.expires_at - 60_000) return acc.access_token;
+  const token = await refresh(acc);
+  saveStore(store);
+  return token;
 }
 
-export function disconnect(): void {
-  try {
-    fs.unlinkSync(TOKEN_FILE);
-  } catch {
-    /* ignore */
+// Re-key any account that isn't stored under its real email (legacy / first load).
+async function normalizeStore(): Promise<void> {
+  const store = loadStore();
+  let changed = false;
+  for (const key of Object.keys(store)) {
+    const acc = store[key];
+    if (!acc.email || key !== acc.email) {
+      try {
+        const token = await validToken(store, key);
+        const email = await getProfileEmail(token);
+        acc.email = email;
+        store[email] = acc;
+        if (key !== email) delete store[key];
+        changed = true;
+      } catch {
+        /* leave as-is; will retry next time */
+      }
+    }
   }
+  if (changed) saveStore(store);
+}
+normalizeStore().catch(() => {});
+
+/* ---------- status ---------- */
+
+export function listAccounts(): string[] {
+  return Object.values(loadStore())
+    .map((a) => a.email)
+    .filter(Boolean);
+}
+export function isConnected(): boolean {
+  return Object.keys(loadStore()).length > 0;
+}
+export function disconnect(email?: string): void {
+  if (!email) {
+    try {
+      fs.unlinkSync(TOKEN_FILE);
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
+  const store = loadStore();
+  for (const k of Object.keys(store)) {
+    if (k === email || store[k].email === email) delete store[k];
+  }
+  saveStore(store);
 }
 
-export async function searchEmails(query: string, maxResults = 5): Promise<any[]> {
-  const token = await getAccessToken();
-  const params = new URLSearchParams({
-    q: query,
-    maxResults: String(maxResults),
-  });
+/* ---------- reading mail (across all connected mailboxes) ---------- */
 
-  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages?${params}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  if (!res.ok) throw new Error(`Gmail search failed: ${res.statusText}`);
-  const data = (await res.json()) as any;
-  return data.messages || [];
+export async function searchEmails(
+  query: string,
+  maxPerAccount = 8,
+): Promise<Array<{ account: string; id: string }>> {
+  await normalizeStore().catch(() => {});
+  const store = loadStore();
+  const out: Array<{ account: string; id: string }> = [];
+  for (const key of Object.keys(store)) {
+    try {
+      const token = await validToken(store, key);
+      const params = new URLSearchParams({ q: query, maxResults: String(maxPerAccount) });
+      const res = await fetch(
+        `https://gmail.googleapis.com/gmail/v1/users/me/messages?${params}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!res.ok) continue;
+      const data = (await res.json()) as any;
+      for (const m of data.messages || []) out.push({ account: store[key].email || key, id: m.id });
+    } catch {
+      /* skip this mailbox on error */
+    }
+  }
+  return out;
 }
 
-export async function getMessage(messageId: string): Promise<any> {
-  const token = await getAccessToken();
-  const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=full`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
+export async function getMessage(account: string, messageId: string): Promise<any> {
+  const store = loadStore();
+  const key = findKey(store, account);
+  const token = await validToken(store, key);
+  const res = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=full`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
   if (!res.ok) throw new Error(`Gmail fetch failed: ${res.statusText}`);
   return res.json();
 }
 
-export async function getAttachment(messageId: string, attachmentId: string): Promise<Buffer> {
-  const token = await getAccessToken();
+export async function getAttachment(
+  account: string,
+  messageId: string,
+  attachmentId: string,
+): Promise<Buffer> {
+  const store = loadStore();
+  const key = findKey(store, account);
+  const token = await validToken(store, key);
   const res = await fetch(
     `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/attachments/${attachmentId}`,
-    { headers: { Authorization: `Bearer ${token}` } }
+    { headers: { Authorization: `Bearer ${token}` } },
   );
-
   if (!res.ok) throw new Error(`Attachment fetch failed: ${res.statusText}`);
   const data = (await res.json()) as any;
-  // data.data is base64url encoded
   return Buffer.from(data.data, "base64url");
+}
+
+export async function getAccessToken(): Promise<string> {
+  const store = loadStore();
+  const key = Object.keys(store)[0];
+  if (!key) throw new Error("Gmail not connected");
+  return validToken(store, key);
 }

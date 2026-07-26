@@ -13,7 +13,7 @@ import {
 } from "./config.js";
 import { checkPassword, issueSession, clearSession, requireAuth } from "./auth.js";
 import { startAuth as startFergusAuth, handleCallback as handleFergusCallback, getAccessToken as getFergusToken, isConnected as isFergusConnected, disconnect as disconnectFergus } from "./fergus.js";
-import { startAuth as startGmailAuth, handleCallback as handleGmailCallback, getAccessToken as getGmailToken, isConnected as isGmailConnected, disconnect as disconnectGmail, searchEmails, getMessage, getAttachment } from "./gmail.js";
+import { startAuth as startGmailAuth, handleCallback as handleGmailCallback, isConnected as isGmailConnected, disconnect as disconnectGmail, listAccounts as listGmailAccounts, searchEmails, getMessage, getAttachment } from "./gmail.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(__dirname, "..", "public");
@@ -109,7 +109,9 @@ app.post("/api/fergus/disconnect", (_req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/api/gmail/status", (_req, res) => res.json({ connected: isGmailConnected() }));
+app.get("/api/gmail/status", (_req, res) =>
+  res.json({ connected: isGmailConnected(), accounts: listGmailAccounts() }),
+);
 app.get("/api/gmail/connect", async (_req, res) => {
   try {
     res.redirect(await startGmailAuth());
@@ -130,9 +132,10 @@ app.get("/api/gmail/callback", async (req, res) => {
     res.redirect("/?gmail_error=" + encodeURIComponent(err?.message ?? "Gmail login failed"));
   }
 });
-app.post("/api/gmail/disconnect", (_req, res) => {
-  disconnectGmail();
-  res.json({ ok: true });
+app.post("/api/gmail/disconnect", (req, res) => {
+  const email = typeof req.body?.email === "string" ? req.body.email : undefined;
+  disconnectGmail(email);
+  res.json({ ok: true, accounts: listGmailAccounts() });
 });
 
 app.get("/api/gmail/search", async (req, res) => {
@@ -149,18 +152,22 @@ app.get("/api/gmail/search", async (req, res) => {
   }
 });
 
-app.get("/api/gmail/message/:messageId", async (req, res) => {
+app.get("/api/gmail/message/:account/:messageId", async (req, res) => {
   try {
-    const message = await getMessage(req.params.messageId);
+    const message = await getMessage(req.params.account, req.params.messageId);
     res.json(message);
   } catch (err: any) {
     res.status(500).json({ error: err?.message ?? "Message fetch failed" });
   }
 });
 
-app.get("/api/gmail/attachment/:messageId/:attachmentId", async (req, res) => {
+app.get("/api/gmail/attachment/:account/:messageId/:attachmentId", async (req, res) => {
   try {
-    const buffer = await getAttachment(req.params.messageId, req.params.attachmentId);
+    const buffer = await getAttachment(
+      req.params.account,
+      req.params.messageId,
+      req.params.attachmentId,
+    );
     res.setHeader("Content-Type", "application/octet-stream");
     res.setHeader("Content-Disposition", `attachment; filename="attachment"`);
     res.send(buffer);
@@ -256,18 +263,20 @@ app.post("/api/chat", async (req, res) => {
   }
 
   async function runGmailSearch(query: string): Promise<string> {
-    const messages = await searchEmails(query, 8);
-    if (!messages?.length) return `No emails found for "${query}".`;
+    const hits = await searchEmails(query, 8);
+    if (!hits?.length) return `No emails found for "${query}".`;
     const out: any[] = [];
-    for (let i = 0; i < Math.min(messages.length, 5); i++) {
+    for (let i = 0; i < Math.min(hits.length, 6); i++) {
+      const { account, id } = hits[i];
       try {
-        const full = await getMessage(messages[i].id);
+        const full = await getMessage(account, id);
         const headers = full.payload?.headers || [];
         const h = (n: string) =>
           headers.find((x: any) => x.name?.toLowerCase() === n)?.value || "";
         const { text, attachments } = extractParts(full.payload);
         out.push({
-          message_id: messages[i].id,
+          account,
+          message_id: id,
           subject: h("subject"),
           from: h("from"),
           date: h("date"),
@@ -275,18 +284,19 @@ app.post("/api/chat", async (req, res) => {
           attachments,
         });
       } catch (e: any) {
-        out.push({ message_id: messages[i].id, error: e?.message });
+        out.push({ account, message_id: id, error: e?.message });
       }
     }
     return JSON.stringify(out, null, 2);
   }
 
   async function runReadAttachment(
+    account: string,
     messageId: string,
     attachmentId: string,
     filename?: string,
   ): Promise<any> {
-    const buf = await getAttachment(messageId, attachmentId);
+    const buf = await getAttachment(account, messageId, attachmentId);
     const b64 = buf.toString("base64");
     const name = filename || "attachment";
     if (/\.pdf$/i.test(name)) {
@@ -313,7 +323,7 @@ app.post("/api/chat", async (req, res) => {
         {
           name: "search_gmail",
           description:
-            "Search the Accounts@ Gmail inbox for supplier emails and invoices. Uses Gmail search syntax. Returns matching emails as JSON: message_id, subject, from, date, a body snippet, and any attachments (filename + attachment_id, needed for read_gmail_attachment). Examples of good queries: 'from:ideal invoice', 'Voltex 11136', 'subject:invoice newer_than:60d', 'JA Russell'.",
+            "Search the connected Gmail mailbox(es) for supplier emails and invoices. Searches every connected account at once. Uses Gmail search syntax. Returns matching emails as JSON: account (which mailbox it's in), message_id, subject, from, date, a body snippet, and any attachments (filename + attachment_id, needed for read_gmail_attachment). Examples of good queries: 'from:ideal invoice', 'Voltex 11136', 'subject:invoice newer_than:60d', 'JA Russell'.",
           input_schema: {
             type: "object",
             properties: {
@@ -325,15 +335,16 @@ app.post("/api/chat", async (req, res) => {
         {
           name: "read_gmail_attachment",
           description:
-            "Fetch and read a PDF/image attachment from a Gmail message so you can see the invoice contents — line items, part numbers, prices, GST, totals. Use message_id and attachment_id returned by search_gmail.",
+            "Fetch and read a PDF/image attachment from a Gmail message so you can see the invoice contents — line items, part numbers, prices, GST, totals. Use account, message_id and attachment_id returned by search_gmail.",
           input_schema: {
             type: "object",
             properties: {
+              account: { type: "string", description: "The mailbox the message is in (from search_gmail results)." },
               message_id: { type: "string" },
               attachment_id: { type: "string" },
               filename: { type: "string", description: "Attachment filename." },
             },
-            required: ["message_id", "attachment_id"],
+            required: ["account", "message_id", "attachment_id"],
           },
         },
       ]
@@ -399,6 +410,7 @@ app.post("/api/chat", async (req, res) => {
                 toolResults.push({ type: "tool_result", tool_use_id: tu.id, content });
               } else if (tu.name === "read_gmail_attachment") {
                 const content = await runReadAttachment(
+                  String(tu.input?.account ?? ""),
                   String(tu.input?.message_id ?? ""),
                   String(tu.input?.attachment_id ?? ""),
                   tu.input?.filename,

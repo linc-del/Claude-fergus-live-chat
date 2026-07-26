@@ -1,9 +1,9 @@
 # Gmail — Supplier Documents
 
-You have two tools for reading the Accounts@ Gmail inbox (only when Gmail is connected):
+You have two tools for reading the connected Gmail mailbox(es). More than one inbox can be connected (e.g. Accounts@ and Office@) — a single search covers all of them at once.
 
-- **`search_gmail(query)`** — searches the inbox using Gmail search syntax. Returns matching emails as JSON: `message_id`, `subject`, `from`, `date`, a body `snippet`, and `attachments` (each with `filename` + `attachment_id`).
-- **`read_gmail_attachment(message_id, attachment_id, filename)`** — fetches a PDF/image attachment so you can actually read the invoice: line items, part numbers, prices, GST, totals.
+- **`search_gmail(query)`** — searches every connected inbox using Gmail search syntax. Returns matching emails as JSON: `account` (which mailbox it's in), `message_id`, `subject`, `from`, `date`, a body `snippet`, and `attachments` (each with `filename` + `attachment_id`).
+- **`read_gmail_attachment(account, message_id, attachment_id, filename)`** — fetches a PDF/image attachment so you can actually read the invoice: line items, part numbers, prices, GST, totals. Pass the same `account` the email came from.
 
 ## Use them proactively
 
