@@ -215,9 +215,35 @@ export function disconnect(email?: string): void {
 
 /* ---------- reading mail (across all connected mailboxes) ---------- */
 
+export async function listLabels(): Promise<Array<{ account: string; name: string; id: string }>> {
+  await normalizeStore().catch(() => {});
+  const store = loadStore();
+  const out: Array<{ account: string; name: string; id: string }> = [];
+  for (const key of Object.keys(store)) {
+    try {
+      const token = await validToken(store, key);
+      const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/labels", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) continue;
+      const data = (await res.json()) as any;
+      for (const l of data.labels || []) {
+        // Skip Gmail's internal category labels (CATEGORY_*, CHAT, etc.) — keep
+        // user labels plus the useful system ones.
+        if (l.type === "user" || ["INBOX", "SENT", "STARRED", "IMPORTANT"].includes(l.id)) {
+          out.push({ account: store[key].email || key, name: l.name, id: l.id });
+        }
+      }
+    } catch {
+      /* skip */
+    }
+  }
+  return out;
+}
+
 export async function searchEmails(
   query: string,
-  maxPerAccount = 8,
+  maxPerAccount = 20,
 ): Promise<Array<{ account: string; id: string }>> {
   await normalizeStore().catch(() => {});
   const store = loadStore();

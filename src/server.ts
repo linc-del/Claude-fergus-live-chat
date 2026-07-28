@@ -14,7 +14,7 @@ import {
 import { authenticate, issueSession, clearSession, requireAuth, currentUser } from "./auth.js";
 import { GMAIL_ALLOWED_ACCOUNTS } from "./config.js";
 import { startAuth as startFergusAuth, handleCallback as handleFergusCallback, getAccessToken as getFergusToken, isConnected as isFergusConnected, disconnect as disconnectFergus } from "./fergus.js";
-import { startAuth as startGmailAuth, handleCallback as handleGmailCallback, isConnected as isGmailConnected, disconnect as disconnectGmail, listAccounts as listGmailAccounts, searchEmails, getMessage, getAttachment } from "./gmail.js";
+import { startAuth as startGmailAuth, handleCallback as handleGmailCallback, isConnected as isGmailConnected, disconnect as disconnectGmail, listAccounts as listGmailAccounts, listLabels as listGmailLabels, searchEmails, getMessage, getAttachment } from "./gmail.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(__dirname, "..", "public");
@@ -270,10 +270,10 @@ app.post("/api/chat", async (req, res) => {
   }
 
   async function runGmailSearch(query: string): Promise<string> {
-    const hits = await searchEmails(query, 8);
+    const hits = await searchEmails(query, 20);
     if (!hits?.length) return `No emails found for "${query}".`;
     const out: any[] = [];
-    for (let i = 0; i < Math.min(hits.length, 6); i++) {
+    for (let i = 0; i < Math.min(hits.length, 12); i++) {
       const { account, id } = hits[i];
       try {
         const full = await getMessage(account, id);
@@ -294,7 +294,14 @@ app.post("/api/chat", async (req, res) => {
         out.push({ account, message_id: id, error: e?.message });
       }
     }
-    return JSON.stringify(out, null, 2);
+    const more = hits.length > out.length ? ` (showing ${out.length} of ${hits.length}+ matches — narrow the query if you need the rest)` : "";
+    return `${out.length} result(s)${more}:\n${JSON.stringify(out, null, 2)}`;
+  }
+
+  async function runGmailLabels(): Promise<string> {
+    const labels = await listGmailLabels();
+    if (!labels?.length) return "No labels found.";
+    return JSON.stringify(labels, null, 2);
   }
 
   async function runReadAttachment(
@@ -328,9 +335,15 @@ app.post("/api/chat", async (req, res) => {
   const gmailTools = isGmailConnected()
     ? [
         {
+          name: "list_gmail_labels",
+          description:
+            "List the labels/folders in the connected Gmail mailbox(es). Use this to find where supplier documents are filed before searching — supplier invoices at Linc are usually under the 'Invoices & Statements' label. Returns account, label name, and id.",
+          input_schema: { type: "object", properties: {} },
+        },
+        {
           name: "search_gmail",
           description:
-            "Search the connected Gmail mailbox(es) for supplier emails and invoices. Searches every connected account at once. Uses Gmail search syntax. Returns matching emails as JSON: account (which mailbox it's in), message_id, subject, from, date, a body snippet, and any attachments (filename + attachment_id, needed for read_gmail_attachment). Examples of good queries: 'from:ideal invoice', 'Voltex 11136', 'subject:invoice newer_than:60d', 'JA Russell'.",
+            "Search the connected Gmail mailbox(es) for supplier emails and invoices. Searches every connected account at once. Uses Gmail search syntax. Returns matching emails as JSON: account (which mailbox it's in), message_id, subject, from, date, a body snippet, and any attachments (filename + attachment_id, needed for read_gmail_attachment). Supplier invoices at Linc are filed under the label 'Invoices & Statements' (or left loose in the inbox). To find supplier documents reliably, prefer 'label:\"Invoices & Statements\" has:attachment' and widen the date window; if that misses some, also try the plain inbox with 'has:attachment filename:pdf'. Other good queries: 'from:ideal has:attachment', 'Voltex 11136', 'subject:(invoice OR statement) newer_than:90d'.",
           input_schema: {
             type: "object",
             properties: {
@@ -382,7 +395,11 @@ app.post("/api/chat", async (req, res) => {
             (event.content_block?.type === "mcp_tool_use" || event.content_block?.type === "tool_use")
           ) {
             const raw = event.content_block.name || "";
-            const name = raw === "search_gmail" ? "Gmail · search" : raw === "read_gmail_attachment" ? "Gmail · read document" : raw;
+            const name =
+              raw === "search_gmail" ? "Gmail · search"
+              : raw === "read_gmail_attachment" ? "Gmail · read document"
+              : raw === "list_gmail_labels" ? "Gmail · list folders"
+              : raw;
             send("tool", { name });
           } else if (event.type === "content_block_delta") {
             const delta = event.delta;
@@ -412,7 +429,10 @@ app.post("/api/chat", async (req, res) => {
           const toolResults: any[] = [];
           for (const tu of toolUses) {
             try {
-              if (tu.name === "search_gmail") {
+              if (tu.name === "list_gmail_labels") {
+                const content = await runGmailLabels();
+                toolResults.push({ type: "tool_result", tool_use_id: tu.id, content });
+              } else if (tu.name === "search_gmail") {
                 const content = await runGmailSearch(String(tu.input?.query ?? ""));
                 toolResults.push({ type: "tool_result", tool_use_id: tu.id, content });
               } else if (tu.name === "read_gmail_attachment") {
