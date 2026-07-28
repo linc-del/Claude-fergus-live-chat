@@ -114,3 +114,7 @@ The app talks to Fergus only and has no mailbox, so it can't send the email itse
 - Assistant behaviour / gear-entry rules: edit the files in `prompts/`.
 - Model: set `MODEL` in `.env`.
 - Restrict which Fergus tools are allowed: give the `mcp_toolset` entry a `default_config`/`configs` allowlist (see the Anthropic MCP connector docs).
+
+## Automations
+
+- **Supplier documents → Drive** (`automation/supplier-docs-to-drive/`) — a Google Apps Script that auto-files supplier PDFs arriving at `accounts@lincelectrical.co.nz` into a dated Drive folder, so the Claude assistant can read them. Runs free on Google, no server. See its [README](automation/supplier-docs-to-drive/README.md) for the 5-minute setup.
