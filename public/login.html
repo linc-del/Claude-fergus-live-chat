@@ -17,11 +17,18 @@
         <h1>Fergus Assistant</h1>
         <p class="login-sub">Linc Electrical — team access</p>
         <input
+          id="username"
+          type="text"
+          placeholder="Your name"
+          autocomplete="username"
+          autocapitalize="off"
+          autofocus
+        />
+        <input
           id="password"
           type="password"
-          placeholder="Team password"
+          placeholder="Password"
           autocomplete="current-password"
-          autofocus
         />
         <button type="submit">Sign in</button>
         <div class="login-error" id="loginError"></div>

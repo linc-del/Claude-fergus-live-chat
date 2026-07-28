@@ -11,7 +11,8 @@ import {
   PUBLIC_URL,
   FERGUS_MCP_URL,
 } from "./config.js";
-import { checkPassword, issueSession, clearSession, requireAuth } from "./auth.js";
+import { authenticate, issueSession, clearSession, requireAuth, currentUser } from "./auth.js";
+import { GMAIL_ALLOWED_ACCOUNTS } from "./config.js";
 import { startAuth as startFergusAuth, handleCallback as handleFergusCallback, getAccessToken as getFergusToken, isConnected as isFergusConnected, disconnect as disconnectFergus } from "./fergus.js";
 import { startAuth as startGmailAuth, handleCallback as handleGmailCallback, isConnected as isGmailConnected, disconnect as disconnectGmail, listAccounts as listGmailAccounts, searchEmails, getMessage, getAttachment } from "./gmail.js";
 
@@ -63,11 +64,13 @@ app.get("/login.js", (_req, res) => res.sendFile(path.join(PUBLIC, "login.js")))
 app.get("/styles.css", (_req, res) => res.sendFile(path.join(PUBLIC, "styles.css")));
 
 app.post("/api/login", (req, res) => {
-  if (checkPassword(req.body?.password)) {
-    issueSession(res);
-    res.json({ ok: true });
+  const user = authenticate(req.body?.username, req.body?.password);
+  if (user) {
+    issueSession(res, user);
+    console.log(`Login: ${user}`);
+    res.json({ ok: true, user });
   } else {
-    res.status(401).json({ error: "Wrong password" });
+    res.status(401).json({ error: "Wrong name or password" });
   }
 });
 app.post("/api/logout", (_req, res) => {
@@ -186,6 +189,10 @@ app.post("/api/chat", async (req, res) => {
     res.status(400).json({ error: "message is required" });
     return;
   }
+
+  // Attribution: who sent this (from the signed session cookie).
+  const user = currentUser(req) ?? "unknown";
+  console.log(`[${user}] ${message.slice(0, 120)}`);
 
   // Make sure Fergus is connected and we have a fresh token *before* streaming.
   let fergusToken: string;

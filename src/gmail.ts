@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { DATA_DIR, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_OAUTH } from "./config.js";
+import { DATA_DIR, GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_OAUTH, GMAIL_ALLOWED_ACCOUNTS } from "./config.js";
 
 // Multiple mailboxes can be connected. Tokens are stored as a map keyed by the
 // account's email address so Claude can search across all of them at once.
@@ -109,6 +109,17 @@ export async function handleCallback(code: string, state: string): Promise<void>
   const data = (await res.json()) as any;
 
   const email = await getProfileEmail(data.access_token);
+
+  // Only allow the approved mailboxes to be connected. Reject anything else so
+  // the "Add inbox" button can't pull in a personal or unrelated account.
+  if (GMAIL_ALLOWED_ACCOUNTS.length && !GMAIL_ALLOWED_ACCOUNTS.includes(email.toLowerCase())) {
+    codeVerifier = "";
+    stateToken = "";
+    throw new Error(
+      `${email} isn't an approved mailbox. Only ${GMAIL_ALLOWED_ACCOUNTS.join(" and ")} can be connected.`,
+    );
+  }
+
   const store = loadStore();
   if (store._legacy) delete store._legacy;
   store[email] = {

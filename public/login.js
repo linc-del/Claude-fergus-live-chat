@@ -1,4 +1,5 @@
 const form = document.getElementById("loginForm");
+const username = document.getElementById("username");
 const password = document.getElementById("password");
 const errorEl = document.getElementById("loginError");
 
@@ -9,7 +10,7 @@ form.addEventListener("submit", async (e) => {
     const res = await fetch("/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: password.value }),
+      body: JSON.stringify({ username: username.value, password: password.value }),
     });
     if (res.ok) {
       window.location.href = "/";

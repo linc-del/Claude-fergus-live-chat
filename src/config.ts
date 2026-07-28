@@ -19,6 +19,36 @@ function required(name: string): string {
 
 export const ANTHROPIC_API_KEY = required("ANTHROPIC_API_KEY");
 export const APP_PASSWORD = required("APP_PASSWORD");
+
+// Per-person logins. Set USERS to "name:password,name:password" (e.g.
+// "caitlin:pw1,dee:pw2") to give staff their own login so the app can record
+// who did what. The owner can always sign in with APP_PASSWORD as "linc".
+// If USERS is unset, everyone just shares APP_PASSWORD.
+function loadUsers(): Record<string, string> {
+  const users: Record<string, string> = {};
+  const raw = process.env.USERS || "";
+  for (const pair of raw.split(",")) {
+    const idx = pair.indexOf(":");
+    if (idx < 0) continue;
+    const name = pair.slice(0, idx).trim().toLowerCase();
+    const pass = pair.slice(idx + 1).trim();
+    if (name && pass) users[name] = pass;
+  }
+  return users;
+}
+// Owner login "linc" is always APP_PASSWORD, unless USERS overrides it.
+export const USERS: Record<string, string> = { linc: APP_PASSWORD, ...loadUsers() };
+
+// Gmail mailboxes the app is allowed to read. Anything not on this list is
+// rejected at connect time, so the "Add inbox" button can't pull in a personal
+// or unrelated account. Override with GMAIL_ALLOWED_ACCOUNTS (comma-separated).
+export const GMAIL_ALLOWED_ACCOUNTS: string[] = (
+  process.env.GMAIL_ALLOWED_ACCOUNTS ||
+  "accounts@lincelectrical.co.nz,office@lincelectrical.co.nz"
+)
+  .split(",")
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
 // claude-haiku-4-5 = cheapest tier (~1/5 of Opus). Override with the MODEL env
 // var to move up to claude-sonnet-5 or claude-opus-4-8 if you want more grunt.
 export const MODEL = process.env.MODEL || "claude-haiku-4-5";
