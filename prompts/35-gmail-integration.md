@@ -8,12 +8,22 @@ You have three tools for reading the connected Gmail mailbox(es). More than one 
 
 ## Where supplier documents live (important)
 
-At Linc, supplier invoices and statements are filed under the Gmail label **"Invoices & Statements"**. Anything not yet sorted sits loose in the inbox. So to find supplier documents **reliably**:
+At Linc, supplier invoices and statements are filed under the Gmail label **"Invoices & Statements"**. Anything not yet sorted sits loose in the inbox.
 
-1. **Start with the label + attachments:** `search_gmail` with `label:"Invoices & Statements" has:attachment`. Add the supplier or job to narrow, e.g. `label:"Invoices & Statements" Ideal`, and widen the date if needed (`newer_than:6m`).
-2. **Then sweep the loose inbox** for anything not yet filed: `in:inbox has:attachment filename:pdf` (plus the supplier name / date). Do this whenever the label search seems short — a doc may not have been sorted yet.
-3. If a search returns few results but reports more matches, or you suspect misfiling, **broaden**: drop the supplier name, widen the date, or try `has:attachment (invoice OR statement)` across everything. Don't stop at the first thin result.
-4. Supplier invoices come from many different sender addresses, so **don't rely on `from:` alone** — lead with the label and `has:attachment`.
+**The job number is your best search key.** Linc uses the **job card number as the purchase-order reference** on every supplier order — so the job number appears on the supplier's invoice and in the email. Searching the bare job number is therefore the most reliable way to find a job's supplier documents.
+
+### Finding docs for a specific job
+1. **Search the job number directly:** `search_gmail` with just the number, e.g. `11136 has:attachment` (or `"11136"`). This catches invoices from any supplier for that job in one go, because the number is the PO reference.
+2. Job numbers sometimes carry a letter suffix (e.g. `11136A`). If the plain number is thin, also try the suffixed form, and vice-versa.
+3. Narrow to filed docs if the inbox is noisy: `label:"Invoices & Statements" 11136`.
+
+### Finding docs by supplier or in general
+1. **Label + attachments first:** `label:"Invoices & Statements" has:attachment`, adding the supplier to narrow (`label:"Invoices & Statements" Ideal`) and widening the date if needed (`newer_than:6m`).
+2. **Then sweep the loose inbox** for anything not yet filed: `in:inbox has:attachment filename:pdf` (plus supplier / date).
+
+### Always
+- If a search returns few results but reports more matches, or looks short, **broaden** — drop terms, widen the date, try `has:attachment (invoice OR statement)`. Don't stop at the first thin result.
+- Supplier invoices arrive from many different sender addresses, so **don't rely on `from:` alone** — lead with the job number, the label, or `has:attachment`.
 
 ## Use them proactively
 
