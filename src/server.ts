@@ -311,25 +311,37 @@ app.post("/api/chat", async (req, res) => {
     filename?: string,
   ): Promise<any> {
     const buf = await getAttachment(account, messageId, attachmentId);
-    const b64 = buf.toString("base64");
     const name = filename || "attachment";
+
+    // PDFs: extract the text server-side and return it as plain text. This is
+    // far more reliable than shipping the raw PDF back into the conversation —
+    // it's small, works on any model, and doesn't choke when several invoices
+    // are read in one turn (which was throwing a request error before).
     if (/\.pdf$/i.test(name)) {
-      return [
-        {
-          type: "document",
-          source: { type: "base64", media_type: "application/pdf", data: b64 },
-          title: name,
-        },
-      ];
+      try {
+        const { getDocumentProxy, extractText } = await import("unpdf");
+        const pdf = await getDocumentProxy(new Uint8Array(buf));
+        const { text } = await extractText(pdf, { mergePages: true });
+        const clean = (text || "").replace(/\n{3,}/g, "\n\n").trim();
+        if (clean.length < 20) {
+          return `[${name}] appears to be a scanned/image-only PDF — no text could be extracted. Ask the user to open it manually, or check for a text-based copy.`;
+        }
+        return `[${name}] extracted text:\n\n${clean.slice(0, 20000)}${clean.length > 20000 ? "\n\n…(truncated)" : ""}`;
+      } catch (e: any) {
+        return `[${name}] could not be read as a PDF: ${e?.message ?? e}`;
+      }
     }
+
+    // Images: return as an image block (small, widely supported).
     const img = /\.(png|jpe?g|gif|webp)$/i.exec(name);
     if (img) {
       const ext = img[1].toLowerCase();
       const media = ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : ext === "webp" ? "image/webp" : "image/jpeg";
-      return [{ type: "image", source: { type: "base64", media_type: media, data: b64 } }];
+      return [{ type: "image", source: { type: "base64", media_type: media, data: buf.toString("base64") } }];
     }
-    // Fallback: treat as text
-    return buf.toString("utf8").slice(0, 8000);
+
+    // Anything else: best-effort text.
+    return buf.toString("utf8").slice(0, 20000);
   }
 
   const gmailTools = isGmailConnected()
