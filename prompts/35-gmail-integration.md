@@ -10,12 +10,21 @@ You have three tools for reading the connected Gmail mailbox(es). More than one 
 
 At Linc, supplier invoices and statements are filed under the Gmail label **"Invoices & Statements"**. Anything not yet sorted sits loose in the inbox.
 
-**The job number is your best search key.** Linc uses the **job card number as the purchase-order reference** on every supplier order — so the job number appears on the supplier's invoice and in the email. Searching the bare job number is therefore the most reliable way to find a job's supplier documents.
+**The job number is your best search key.** Linc uses the **job card number as the purchase-order reference** on every supplier order — so the number appears on the supplier's invoice and in the email. Searching the job number is the most reliable way to find a job's supplier documents.
 
-### Finding docs for a specific job
-1. **Search the job number directly:** `search_gmail` with just the number, e.g. `11136 has:attachment` (or `"11136"`). This catches invoices from any supplier for that job in one go, because the number is the PO reference.
-2. Job numbers sometimes carry a letter suffix (e.g. `11136A`). If the plain number is thin, also try the suffixed form, and vice-versa.
-3. Narrow to filed docs if the inbox is noisy: `label:"Invoices & Statements" 11136`.
+**Job-number structure — phases matter.** The base number is the job; a **letter suffix is a phase / site visit**: `12345` is the job, `12345A` is the first site visit, `12345B` the second, `12345C` the third, and so on. A supplier order is raised against the *specific phase*, so its invoice quotes e.g. `12345B`, not the bare `12345`. Gmail treats `12345B` as its own word and a search for `12345` will **not** reliably match it — so you must search the phase forms explicitly.
+
+### Finding ALL docs for a job
+Search the base number OR-ed with its phase forms, plus attachments:
+```
+(12345 OR 12345A OR 12345B OR 12345C OR 12345D OR 12345E) has:attachment
+```
+- Extend the letters if the job is likely to have more phases.
+- If you're unsure how many phases exist, check the job's phases in **Fergus** (list the job's phases) and search the exact phase references you find.
+- Narrow to filed docs if the inbox is noisy: add `label:"Invoices & Statements"`.
+
+### Finding docs for one specific site visit / phase
+Search that exact reference, e.g. `12345B has:attachment`.
 
 ### Finding docs by supplier or in general
 1. **Label + attachments first:** `label:"Invoices & Statements" has:attachment`, adding the supplier to narrow (`label:"Invoices & Statements" Ideal`) and widening the date if needed (`newer_than:6m`).
