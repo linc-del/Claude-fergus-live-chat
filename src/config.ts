@@ -87,10 +87,12 @@ export const FERGUS_OAUTH = {
   redirectUri: `${PUBLIC_URL}/api/fergus/callback`,
 };
 
-// Gmail OAuth endpoints (Google).
+// Google OAuth endpoints. One connection grants both Gmail (read) and Drive
+// (read) — adding the Drive scope means accounts must reconnect once to grant it.
 export const GMAIL_OAUTH = {
   authorize: "https://accounts.google.com/o/oauth2/v2/auth",
   token: "https://oauth2.googleapis.com/token",
-  scope: "https://www.googleapis.com/auth/gmail.readonly",
+  scope:
+    "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive.readonly",
   redirectUri: `${PUBLIC_URL}/api/gmail/callback`,
 };

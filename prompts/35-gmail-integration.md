@@ -55,6 +55,14 @@ When Lincoln asks for a supplier invoice or document — "grab the latest Ideal 
 - Prices on supplier invoices are typically **GST-inclusive** — say so, and convert to ex-GST when matching Fergus pricebook cost (Fergus is ex-GST).
 - If a search returns nothing, broaden it (drop the job number, widen the date) and try again before giving up.
 
+## Google Drive
+
+The same Google connection also gives read access to **Google Drive**:
+- **`search_drive(query)`** — search files across the connected account(s). Uses Drive `q` syntax, e.g. `name contains '9659'`, `fullText contains 'Pasty Trust'`, `mimeType = 'application/pdf'` (combine with `and`). Returns file id, name, type, modified date, and a link.
+- **`read_drive_file(account, file_id, filename)`** — read a file's contents. PDFs and Google Docs/Sheets come back as text/CSV; images come back as images. Word/Excel *binaries* can't be read directly — say so and point the user to the file.
+
+Use Drive for job files, plans, photos, quotes, or documents that live there rather than in Gmail. If a Drive search returns nothing and you haven't yet, try broader terms (`fullText contains '...'`) before giving up.
+
 ## Common suppliers
 
 - **Ideal Electrical** — primary electrical supplier

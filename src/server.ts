@@ -14,7 +14,7 @@ import {
 import { authenticate, issueSession, clearSession, requireAuth, currentUser } from "./auth.js";
 import { GMAIL_ALLOWED_ACCOUNTS } from "./config.js";
 import { startAuth as startFergusAuth, handleCallback as handleFergusCallback, getAccessToken as getFergusToken, isConnected as isFergusConnected, disconnect as disconnectFergus } from "./fergus.js";
-import { startAuth as startGmailAuth, handleCallback as handleGmailCallback, isConnected as isGmailConnected, disconnect as disconnectGmail, listAccounts as listGmailAccounts, listLabels as listGmailLabels, searchEmails, getMessage, getAttachment } from "./gmail.js";
+import { startAuth as startGmailAuth, handleCallback as handleGmailCallback, isConnected as isGmailConnected, disconnect as disconnectGmail, listAccounts as listGmailAccounts, listLabels as listGmailLabels, searchEmails, getMessage, getAttachment, searchDrive, getDriveFile } from "./gmail.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC = path.join(__dirname, "..", "public");
@@ -344,6 +344,40 @@ app.post("/api/chat", async (req, res) => {
     return buf.toString("utf8").slice(0, 20000);
   }
 
+  async function runDriveSearch(query: string): Promise<string> {
+    const hits = await searchDrive(query, 20);
+    if (!hits?.length) return `No Drive files found for "${query}".`;
+    const shown = hits.slice(0, 25);
+    const more = hits.length > shown.length ? ` (showing ${shown.length} of ${hits.length}+)` : "";
+    return `${hits.length} file(s)${more}:\n${JSON.stringify(shown, null, 2)}`;
+  }
+
+  async function runReadDriveFile(account: string, fileId: string, filename?: string): Promise<any> {
+    const { name, mimeType, buffer } = await getDriveFile(account, fileId);
+    const label = filename || name;
+    if (mimeType === "application/pdf" || /\.pdf$/i.test(label)) {
+      try {
+        const { getDocumentProxy, extractText } = await import("unpdf");
+        const pdf = await getDocumentProxy(new Uint8Array(buffer));
+        const { text } = await extractText(pdf, { mergePages: true });
+        const clean = (text || "").replace(/\n{3,}/g, "\n\n").trim();
+        if (clean.length < 20) return `[${label}] appears to be a scanned/image-only PDF — no text could be extracted.`;
+        return `[${label}] extracted text:\n\n${clean.slice(0, 20000)}${clean.length > 20000 ? "\n\n…(truncated)" : ""}`;
+      } catch (e: any) {
+        return `[${label}] could not be read as a PDF: ${e?.message ?? e}`;
+      }
+    }
+    if (mimeType.startsWith("text/") || mimeType === "application/json") {
+      const t = buffer.toString("utf8");
+      return `[${label}]\n\n${t.slice(0, 20000)}${t.length > 20000 ? "\n\n…(truncated)" : ""}`;
+    }
+    const img = /^image\/(png|jpe?g|gif|webp)$/.exec(mimeType);
+    if (img) {
+      return [{ type: "image", source: { type: "base64", media_type: mimeType, data: buffer.toString("base64") } }];
+    }
+    return `[${label}] is a ${mimeType} file — I can't read that format directly (likely a Word/Excel binary). Open it in Drive, or export it to PDF/text and I'll read it.`;
+  }
+
   const gmailTools = isGmailConnected()
     ? [
         {
@@ -379,6 +413,32 @@ app.post("/api/chat", async (req, res) => {
             required: ["account", "message_id", "attachment_id"],
           },
         },
+        {
+          name: "search_drive",
+          description:
+            "Search Google Drive across the connected account(s) for files — job files, plans, quotes, photos, documents. Uses Drive query syntax, e.g. `name contains '9659'`, `fullText contains 'Pasty Trust'`, `mimeType = 'application/pdf'`. Combine with `and`. Returns account, file id, name, mimeType, modifiedTime, and a link. Use the id with read_drive_file to read the contents.",
+          input_schema: {
+            type: "object",
+            properties: {
+              query: { type: "string", description: "Drive search query (Drive `q` syntax)." },
+            },
+            required: ["query"],
+          },
+        },
+        {
+          name: "read_drive_file",
+          description:
+            "Read the contents of a Drive file (PDF, text, CSV, Google Doc/Sheet, or image) using account + file_id from search_drive. Google Docs/Sheets are auto-exported to text/CSV. Word/Excel binaries can't be read directly.",
+          input_schema: {
+            type: "object",
+            properties: {
+              account: { type: "string", description: "The account the file is in (from search_drive results)." },
+              file_id: { type: "string" },
+              filename: { type: "string", description: "File name (for reference)." },
+            },
+            required: ["account", "file_id"],
+          },
+        },
       ]
     : [];
 
@@ -411,6 +471,8 @@ app.post("/api/chat", async (req, res) => {
               raw === "search_gmail" ? "Gmail · search"
               : raw === "read_gmail_attachment" ? "Gmail · read document"
               : raw === "list_gmail_labels" ? "Gmail · list folders"
+              : raw === "search_drive" ? "Drive · search"
+              : raw === "read_drive_file" ? "Drive · read file"
               : raw;
             send("tool", { name });
           } else if (event.type === "content_block_delta") {
@@ -452,6 +514,16 @@ app.post("/api/chat", async (req, res) => {
                   String(tu.input?.account ?? ""),
                   String(tu.input?.message_id ?? ""),
                   String(tu.input?.attachment_id ?? ""),
+                  tu.input?.filename,
+                );
+                toolResults.push({ type: "tool_result", tool_use_id: tu.id, content });
+              } else if (tu.name === "search_drive") {
+                const content = await runDriveSearch(String(tu.input?.query ?? ""));
+                toolResults.push({ type: "tool_result", tool_use_id: tu.id, content });
+              } else if (tu.name === "read_drive_file") {
+                const content = await runReadDriveFile(
+                  String(tu.input?.account ?? ""),
+                  String(tu.input?.file_id ?? ""),
                   tu.input?.filename,
                 );
                 toolResults.push({ type: "tool_result", tool_use_id: tu.id, content });

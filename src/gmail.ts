@@ -301,3 +301,92 @@ export async function getAccessToken(): Promise<string> {
   if (!key) throw new Error("Gmail not connected");
   return validToken(store, key);
 }
+
+/* ---------- Google Drive (read-only, same connection as Gmail) ---------- */
+
+export async function searchDrive(
+  query: string,
+  maxPerAccount = 20,
+): Promise<Array<{ account: string; id: string; name: string; mimeType: string; modifiedTime: string; link: string }>> {
+  await normalizeStore().catch(() => {});
+  const store = loadStore();
+  const out: Array<{ account: string; id: string; name: string; mimeType: string; modifiedTime: string; link: string }> = [];
+  let sawAuthError = false;
+  for (const key of Object.keys(store)) {
+    try {
+      const token = await validToken(store, key);
+      const params = new URLSearchParams({
+        q: query,
+        pageSize: String(maxPerAccount),
+        fields: "files(id,name,mimeType,modifiedTime,webViewLink)",
+        orderBy: "modifiedTime desc",
+        supportsAllDrives: "true",
+        includeItemsFromAllDrives: "true",
+      });
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 403) {
+        sawAuthError = true;
+        continue;
+      }
+      if (!res.ok) continue;
+      const data = (await res.json()) as any;
+      for (const f of data.files || []) {
+        out.push({
+          account: store[key].email || key,
+          id: f.id,
+          name: f.name,
+          mimeType: f.mimeType,
+          modifiedTime: f.modifiedTime,
+          link: f.webViewLink || "",
+        });
+      }
+    } catch {
+      /* skip */
+    }
+  }
+  if (!out.length && sawAuthError) {
+    throw new Error(
+      "Drive access isn't authorised yet. Reconnect the Google account (Add inbox) to grant Drive, then try again.",
+    );
+  }
+  return out;
+}
+
+export async function getDriveFile(
+  account: string,
+  fileId: string,
+): Promise<{ name: string; mimeType: string; buffer: Buffer }> {
+  const store = loadStore();
+  const key = findKey(store, account);
+  const token = await validToken(store, key);
+
+  const metaRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType&supportsAllDrives=true`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!metaRes.ok) throw new Error(`Drive file lookup failed: ${metaRes.statusText}`);
+  const meta = (await metaRes.json()) as any;
+  const mime: string = meta.mimeType;
+
+  let url: string;
+  let outMime = mime;
+  if (mime.startsWith("application/vnd.google-apps.")) {
+    // Google-native docs must be exported to a readable format.
+    let exportMime = "text/plain";
+    if (mime === "application/vnd.google-apps.spreadsheet") exportMime = "text/csv";
+    else if (mime === "application/vnd.google-apps.presentation") exportMime = "text/plain";
+    else if (mime === "application/vnd.google-apps.document") exportMime = "text/plain";
+    else exportMime = "application/pdf";
+    url = `https://www.googleapis.com/drive/v3/files/${fileId}/export?mimeType=${encodeURIComponent(exportMime)}`;
+    outMime = exportMime;
+  } else {
+    url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`;
+  }
+
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error(`Drive download failed: ${res.statusText}`);
+  const buffer = Buffer.from(await res.arrayBuffer());
+  return { name: meta.name, mimeType: outMime, buffer };
+}
