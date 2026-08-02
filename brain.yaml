@@ -36,7 +36,8 @@ company:
     renewal: conflict            # 31-May-2026 vs 16-Apr-2028 — see open_questions.licence_renewal
 
   contact:
-    phone: "027 3636190"         # confirmed (Fergus) — this is Lincoln's mobile; confirm if a separate office line exists
+    phone: "027 438 5462"        # confirmed (Fergus) — main line, NEW (appeared Jul 2026); likely the office line
+    mobile: "027 363 6190"       # Lincoln's mobile (was the only number on file before)
     email: office@lincelectrical.co.nz
     website: www.lincelectrical.co.nz   # being migrated GoDaddy -> Squarespace
     workshop_address: 25a Bisley Street, Cloverlea, Palmerston North 4412
