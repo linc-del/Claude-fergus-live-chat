@@ -34,13 +34,38 @@ function hideEmpty() {
   if (emptyEl) emptyEl.style.display = "none";
 }
 
-function addUserMessage(text) {
+function addUserMessage(text, attachments = []) {
   hideEmpty();
   const wrap = document.createElement("div");
   wrap.className = "msg user";
   const bubble = document.createElement("div");
   bubble.className = "bubble";
-  bubble.textContent = text;
+
+  if (attachments.length) {
+    const strip = document.createElement("div");
+    strip.className = "msg-attachments";
+    for (const a of attachments) {
+      if (a.mimeType && a.mimeType.startsWith("image/")) {
+        const img = document.createElement("img");
+        img.className = "msg-thumb";
+        img.src = `data:${a.mimeType};base64,${a.data}`;
+        img.alt = a.name || "image";
+        strip.appendChild(img);
+      } else {
+        const chip = document.createElement("span");
+        chip.className = "file-chip";
+        chip.textContent = "📄 " + (a.name || "file");
+        strip.appendChild(chip);
+      }
+    }
+    bubble.appendChild(strip);
+  }
+  if (text) {
+    const t = document.createElement("div");
+    t.textContent = text;
+    bubble.appendChild(t);
+  }
+
   wrap.appendChild(bubble);
   messagesEl.appendChild(wrap);
   scrollToBottom();
@@ -127,7 +152,8 @@ function createAssistantTurn() {
 /* ---------- streaming request ---------- */
 
 async function sendMessage(text, viaVoice = false) {
-  if (busy || !text.trim()) return;
+  // Allow sending if there's text OR at least one attachment.
+  if (busy || (!text.trim() && pendingAttachments.length === 0)) return;
   busy = true;
   sendBtn.disabled = true;
   if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -135,14 +161,18 @@ async function sendMessage(text, viaVoice = false) {
   input.value = "";
   autoGrow();
 
-  addUserMessage(text);
+  const attachments = pendingAttachments.slice();
+  clearAttachments();
+
+  const shown = text.trim() || (attachments.length ? "" : text);
+  addUserMessage(shown, attachments);
   const turn = createAssistantTurn();
 
   try {
     const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId, message: text }),
+      body: JSON.stringify({ sessionId, message: text, attachments }),
     });
 
     if (!res.ok || !res.body) {
@@ -239,6 +269,120 @@ form.addEventListener("submit", (e) => {
 document.querySelectorAll(".chip").forEach((chip) => {
   chip.addEventListener("click", () => sendMessage(chip.textContent.trim()));
 });
+
+/* ---------- Attachments (photos & PDFs) ---------- */
+
+const attachBtn = document.getElementById("attach");
+const fileInput = document.getElementById("fileInput");
+const attachmentsEl = document.getElementById("attachments");
+let pendingAttachments = [];
+
+const MAX_IMAGE_DIM = 1568; // downscale photos to the vision sweet spot
+const MAX_FILE_MB = 20;
+
+attachBtn.addEventListener("click", () => fileInput.click());
+
+fileInput.addEventListener("change", async () => {
+  const files = Array.from(fileInput.files || []);
+  fileInput.value = ""; // allow re-picking the same file
+  for (const file of files) {
+    if (file.size > MAX_FILE_MB * 1024 * 1024 && !file.type.startsWith("image/")) {
+      voiceNote?.(`${file.name} is too big (max ${MAX_FILE_MB}MB).`);
+      continue;
+    }
+    try {
+      const att = await fileToAttachment(file);
+      pendingAttachments.push(att);
+    } catch {
+      voiceNote?.(`Couldn't attach ${file.name}.`);
+    }
+  }
+  renderAttachments();
+});
+
+function renderAttachments() {
+  attachmentsEl.innerHTML = "";
+  attachmentsEl.hidden = pendingAttachments.length === 0;
+  pendingAttachments.forEach((a, i) => {
+    const chip = document.createElement("div");
+    chip.className = "attach-chip";
+    if (a.mimeType && a.mimeType.startsWith("image/")) {
+      const img = document.createElement("img");
+      img.src = `data:${a.mimeType};base64,${a.data}`;
+      chip.appendChild(img);
+    } else {
+      const icon = document.createElement("span");
+      icon.textContent = "📄";
+      chip.appendChild(icon);
+    }
+    const label = document.createElement("span");
+    label.className = "attach-name";
+    label.textContent = a.name || "file";
+    chip.appendChild(label);
+    const rm = document.createElement("button");
+    rm.type = "button";
+    rm.className = "attach-remove";
+    rm.setAttribute("aria-label", "Remove");
+    rm.textContent = "×";
+    rm.addEventListener("click", () => {
+      pendingAttachments.splice(i, 1);
+      renderAttachments();
+    });
+    chip.appendChild(rm);
+    attachmentsEl.appendChild(chip);
+  });
+}
+
+function clearAttachments() {
+  pendingAttachments = [];
+  renderAttachments();
+}
+
+async function fileToAttachment(file) {
+  if (file.type && file.type.startsWith("image/")) {
+    const { mimeType, data } = await downscaleImage(file, MAX_IMAGE_DIM, 0.85);
+    return { name: file.name, mimeType, data };
+  }
+  const data = await fileToBase64(file);
+  return { name: file.name, mimeType: file.type || "application/octet-stream", data };
+}
+
+function downscaleImage(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if (width > maxDim || height > maxDim) {
+        if (width >= height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      resolve({ mimeType: "image/jpeg", data: dataUrl.split(",")[1] });
+    };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).split(",")[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
 
 /* ---------- Fergus connection + account ---------- */
 

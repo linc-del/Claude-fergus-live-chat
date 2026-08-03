@@ -500,9 +500,75 @@ body {
   cursor: default;
 }
 
-.mic-btn {
+.mic-btn,
+.attach-btn {
   background: var(--tool-bg);
   color: var(--tool-text);
+}
+
+/* Attachment preview strip above the composer */
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 4px 10px;
+}
+.attach-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 220px;
+  padding: 5px 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+}
+.attach-chip img {
+  width: 30px;
+  height: 30px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+.attach-chip .attach-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.attach-remove {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  opacity: 0.6;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 2px;
+}
+.attach-remove:hover {
+  opacity: 1;
+}
+
+/* Attachments shown inside a sent user bubble */
+.msg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.msg-thumb {
+  max-width: 180px;
+  max-height: 180px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+.file-chip {
+  display: inline-block;
+  padding: 4px 8px;
+  background: var(--tool-bg);
+  color: var(--tool-text);
+  border-radius: 8px;
+  font-size: 13px;
 }
 
 .mic-btn.listening {

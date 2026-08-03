@@ -56,7 +56,7 @@ setInterval(() => {
 
 const app = express();
 app.set("trust proxy", 1);
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "30mb" })); // room for uploaded photos/PDFs (base64)
 
 /* ---------- public (no login required) ---------- */
 app.get("/login", (_req, res) => res.sendFile(path.join(PUBLIC, "login.html")));
@@ -181,18 +181,57 @@ app.get("/api/gmail/attachment/:account/:messageId/:attachmentId", async (req, r
 
 app.post("/api/chat", async (req, res) => {
   const { sessionId, message } = req.body ?? {};
+  const attachments: any[] = Array.isArray(req.body?.attachments) ? req.body.attachments : [];
   if (typeof sessionId !== "string" || !sessionId) {
     res.status(400).json({ error: "sessionId is required" });
     return;
   }
-  if (typeof message !== "string" || !message.trim()) {
-    res.status(400).json({ error: "message is required" });
+  if ((typeof message !== "string" || !message.trim()) && attachments.length === 0) {
+    res.status(400).json({ error: "message or an attachment is required" });
     return;
   }
 
   // Attribution: who sent this (from the signed session cookie).
   const user = currentUser(req) ?? "unknown";
-  console.log(`[${user}] ${message.slice(0, 120)}`);
+  const attachNote = attachments.length ? ` (+${attachments.length} attachment${attachments.length > 1 ? "s" : ""})` : "";
+  console.log(`[${user}] ${String(message ?? "").slice(0, 120)}${attachNote}`);
+
+  // Turn uploaded photos/PDFs into content blocks for the user turn. Images go
+  // as image blocks (vision reads them); PDFs are text-extracted server-side.
+  async function buildUserContent(): Promise<any> {
+    if (!attachments.length) return message;
+    const blocks: any[] = [];
+    for (const a of attachments) {
+      const name = String(a?.name || "file");
+      const mime = String(a?.mimeType || "");
+      const data = String(a?.data || "");
+      if (!data) continue;
+      if (mime.startsWith("image/")) {
+        blocks.push({ type: "image", source: { type: "base64", media_type: mime, data } });
+      } else if (mime === "application/pdf" || /\.pdf$/i.test(name)) {
+        try {
+          const { getDocumentProxy, extractText } = await import("unpdf");
+          const pdf = await getDocumentProxy(new Uint8Array(Buffer.from(data, "base64")));
+          const { text } = await extractText(pdf, { mergePages: true });
+          const clean = (text || "").replace(/\n{3,}/g, "\n\n").trim();
+          blocks.push({
+            type: "text",
+            text: clean.length >= 20
+              ? `[Uploaded PDF: ${name}]\n\n${clean.slice(0, 20000)}`
+              : `[Uploaded PDF: ${name}] — appears to be a scanned/image-only PDF; no text could be extracted.`,
+          });
+        } catch (e: any) {
+          blocks.push({ type: "text", text: `[Uploaded PDF: ${name}] — couldn't be read: ${e?.message ?? e}` });
+        }
+      } else {
+        // Best-effort text for anything else.
+        const txt = Buffer.from(data, "base64").toString("utf8").slice(0, 20000);
+        blocks.push({ type: "text", text: `[Uploaded file: ${name}]\n\n${txt}` });
+      }
+    }
+    if (typeof message === "string" && message.trim()) blocks.push({ type: "text", text: message });
+    return blocks.length ? blocks : message;
+  }
 
   // Make sure Fergus is connected and we have a fresh token *before* streaming.
   let fergusToken: string;
@@ -212,7 +251,7 @@ app.post("/api/chat", async (req, res) => {
     sessions.set(sessionId, session);
   }
   session.lastUsed = Date.now();
-  session.messages.push({ role: "user", content: message });
+  session.messages.push({ role: "user", content: await buildUserContent() });
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
