@@ -25,7 +25,8 @@ Approved: **JA Russell** (primary), **Ideal** and **Ideal HNZ**, **Realcold NZ L
 
 - **"RX"** is Ideal's in-house **Rex**-branded range, not a separate supplier.
 - **NSG** is not a connected supplier account, so **NSG Quantum battens are not sourceable** through Fergus.
-- **Realcold may have no items loaded** despite being the approved Gree supplier. If a heat pump has no live cost, **say so and stop — do not price from memory.**
+- **Two Realcold pricebooks exist — use the right one.** `Realcold` (id 417444) is an **empty duplicate** (0 items) — ignore it. The live one is **`Realcold NZ Ltd` (id 432937), ~1,254 items**, but it was **last updated 20 May 2026** — treat Gree unit costs as **potentially stale** and **verify the cost against Realcold before pricing** a heat pump. If a Gree unit has no live cost in 432937, say so and stop — don't price from memory.
+- **Corys (id ~— banned) is still syncing** and is nearly half of every pricebook search result. Always exclude it and call it out when it surfaces.
 
 ## Default products (unless the client specifies otherwise)
 

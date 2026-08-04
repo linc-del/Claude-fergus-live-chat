@@ -58,6 +58,10 @@ export const FERGUS_MCP_URL = process.env.FERGUS_MCP_URL || "https://mcp.fergus.
 export const GMAIL_CLIENT_ID = process.env.GMAIL_CLIENT_ID || "";
 export const GMAIL_CLIENT_SECRET = process.env.GMAIL_CLIENT_SECRET || "";
 
+// Company rulebook (brain.yaml) on Drive. Default is the known file id; the
+// folder must be shared with a connected mailbox (office@/accounts@) as Viewer.
+export const BRAIN_FILE_ID = process.env.BRAIN_FILE_ID || "1lXH1ZOUCQBoDeq8kVg6PzLRJa6xKOoxh";
+
 // Public base URL the app is reached at (used to build the OAuth redirect URI).
 // Locally this is http://localhost:3000; in the cloud, set PUBLIC_URL to your domain.
 export const PUBLIC_URL = (process.env.PUBLIC_URL || `http://localhost:${PORT}`).replace(/\/+$/, "");

@@ -13,6 +13,7 @@ import {
 } from "./config.js";
 import { authenticate, issueSession, clearSession, requireAuth, currentUser } from "./auth.js";
 import { GMAIL_ALLOWED_ACCOUNTS } from "./config.js";
+import { getBrain, AUTHORITATIVE } from "./brain.js";
 import { startAuth as startFergusAuth, handleCallback as handleFergusCallback, getAccessToken as getFergusToken, isConnected as isFergusConnected, disconnect as disconnectFergus } from "./fergus.js";
 import { startAuth as startGmailAuth, handleCallback as handleGmailCallback, isConnected as isGmailConnected, disconnect as disconnectGmail, listAccounts as listGmailAccounts, listLabels as listGmailLabels, searchEmails, getMessage, getAttachment, searchDrive, getDriveFile } from "./gmail.js";
 
@@ -115,6 +116,14 @@ app.post("/api/fergus/disconnect", (_req, res) => {
 app.get("/api/gmail/status", (_req, res) =>
   res.json({ connected: isGmailConnected(), accounts: listGmailAccounts() }),
 );
+
+// Phase 2 health check for the company rulebook (brain.yaml). Reports whether
+// the app can read it, how stale it is, and its top-level keys — no behaviour
+// change yet; nothing prices from it until we've verified Monday's refresh.
+app.get("/api/brain", async (_req, res) => {
+  const status = await getBrain(true);
+  res.json({ ...status, authoritativeConstants: AUTHORITATIVE });
+});
 app.get("/api/gmail/connect", async (_req, res) => {
   try {
     res.redirect(await startGmailAuth());

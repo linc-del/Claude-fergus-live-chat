@@ -354,6 +354,53 @@ export async function searchDrive(
   return out;
 }
 
+// Fetch a Drive file by id from whichever connected account can see it, with
+// its modifiedTime. Used to read the shared company rulebook (brain.yaml).
+export async function fetchDriveFileById(
+  fileId: string,
+): Promise<{ name: string; mimeType: string; modifiedTime: string; buffer: Buffer; account: string }> {
+  await normalizeStore().catch(() => {});
+  const store = loadStore();
+  let lastErr: any = null;
+  for (const key of Object.keys(store)) {
+    try {
+      const token = await validToken(store, key);
+      const metaRes = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}?fields=id,name,mimeType,modifiedTime&supportsAllDrives=true`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!metaRes.ok) {
+        lastErr = new Error(`${metaRes.status} ${metaRes.statusText}`);
+        continue;
+      }
+      const meta = (await metaRes.json()) as any;
+      const contentRes = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&supportsAllDrives=true`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!contentRes.ok) {
+        lastErr = new Error(`${contentRes.status} ${contentRes.statusText}`);
+        continue;
+      }
+      const buffer = Buffer.from(await contentRes.arrayBuffer());
+      return {
+        name: meta.name,
+        mimeType: meta.mimeType,
+        modifiedTime: meta.modifiedTime,
+        buffer,
+        account: store[key].email || key,
+      };
+    } catch (e: any) {
+      lastErr = e;
+    }
+  }
+  throw new Error(
+    lastErr
+      ? `No connected Google account could read that file (${lastErr.message}). Is it shared with a connected mailbox and is Drive access granted?`
+      : "No Google account connected.",
+  );
+}
+
 export async function getDriveFile(
   account: string,
   fileId: string,
